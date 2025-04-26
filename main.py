@@ -1,8 +1,12 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import os
 
+# Bot setup
 intents = discord.Intents.default()
+intents.message_content = True  # Added to clean up warning
+
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # Your audible MP4s hosted on Vercel
@@ -35,17 +39,16 @@ async def on_ready():
 
 @bot.tree.command(name="audible", description="Send an audible from the list")
 async def audible(interaction: discord.Interaction):
-    options = [
-        discord.SelectOption(
-            label=name,
-            description=data["description"],
-            emoji=data.get("emoji", None)
-        )
-        for name, data in AUDIBLES.items()
-    ]
-
     class Dropdown(discord.ui.Select):
         def __init__(self):
+            options = [
+                discord.SelectOption(
+                    label=name,
+                    description=data["description"],
+                    emoji=data.get("emoji", None)
+                )
+                for name, data in AUDIBLES.items()
+            ]
             super().__init__(
                 placeholder="Choose an audible!",
                 min_values=1,
@@ -71,6 +74,5 @@ async def audible(interaction: discord.Interaction):
         ephemeral=False
     )
 
-# Run the bot using your token from Railway env vars
-import os
+# Run the bot using your Railway environment variable for the token
 bot.run(os.environ["DISCORD_TOKEN"])
