@@ -4,7 +4,7 @@ import os
 
 # Bot setup
 intents = discord.Intents.default()
-intents.message_content = True  # Needed for slash commands to work properly
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
@@ -27,19 +27,7 @@ AUDIBLES = {
     },
 }
 
-# 🔥 Manual sync to your server
-GUILD_ID = 1365585248259407922  # <- your real Server ID
-
-@bot.event
-async def on_ready():
-    print(f"Bot is ready. Logged in as {bot.user}")
-    try:
-        guild = discord.Object(id=GUILD_ID)
-        synced = await bot.tree.sync(guild=guild)
-        print(f"Synced {len(synced)} slash commands to server {GUILD_ID}")
-    except Exception as e:
-        print(f"Error syncing commands: {e}")
-
+# 🔥 Define slash command FIRST
 @bot.tree.command(name="audible", description="Send an audible from the list")
 async def audible(interaction: discord.Interaction):
     options = [
@@ -77,6 +65,19 @@ async def audible(interaction: discord.Interaction):
     await interaction.response.send_message(
         "Choose your audible below:", view=view, ephemeral=False
     )
+
+# 🔥 Then setup ready + manual sync
+GUILD_ID = 1365585248259407922  # Your server ID
+
+@bot.event
+async def on_ready():
+    print(f"Bot is ready. Logged in as {bot.user}")
+    try:
+        guild = discord.Object(id=GUILD_ID)
+        synced = await bot.tree.sync(guild=guild)
+        print(f"Synced {len(synced)} slash commands to server {GUILD_ID}")
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
 
 # Run the bot
 bot.run(os.environ["DISCORD_TOKEN"])
