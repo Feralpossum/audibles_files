@@ -5,7 +5,7 @@ import os
 
 # Bot setup
 intents = discord.Intents.default()
-intents.message_content = True  # Added to clean up warning
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="/", intents=intents)
 
@@ -26,6 +26,41 @@ AUDIBLES = {
         "description": "Warm fuzzy welcome",
         "emoji": "👋"
     },
+    "HappyBirthday": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/HappyBirthday.mp4",
+        "description": "Birthday celebration",
+        "emoji": "🎂"
+    },
+    "EpicFail": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/EpicFail.mp4",
+        "description": "Epic fail sound",
+        "emoji": "💥"
+    },
+    "MissionComplete": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/MissionComplete.mp4",
+        "description": "Victory noise",
+        "emoji": "🏆"
+    },
+    "Surprise": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/Surprise.mp4",
+        "description": "Shocking surprise",
+        "emoji": "🎉"
+    },
+    "SarcasticClap": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/SarcasticClap.mp4",
+        "description": "Mock applause",
+        "emoji": "👏"
+    },
+    "Oops": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/Oops.mp4",
+        "description": "Oops sound",
+        "emoji": "😬"
+    },
+    "GameOver": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/GameOver.mp4",
+        "description": "Game over tone",
+        "emoji": "🎮"
+    },
 }
 
 @bot.event
@@ -39,40 +74,41 @@ async def on_ready():
 
 @bot.tree.command(name="audible", description="Send an audible from the list")
 async def audible(interaction: discord.Interaction):
-    class Dropdown(discord.ui.Select):
-        def __init__(self):
-            options = [
-                discord.SelectOption(
-                    label=name,
-                    description=data["description"],
-                    emoji=data.get("emoji", None)
-                )
-                for name, data in AUDIBLES.items()
-            ]
-            super().__init__(
-                placeholder="Choose an audible!",
-                min_values=1,
-                max_values=1,
-                options=options
-            )
+    options = [
+        discord.SelectOption(
+            label=name,
+            description=data["description"],
+            emoji=data.get("emoji", None)
+        )
+        for name, data in AUDIBLES.items()
+    ]
 
-        async def callback(self, interaction2: discord.Interaction):
-            choice = self.values[0]
-            url = AUDIBLES[choice]["url"]
-            await interaction2.response.send_message(
-                f"🔊 **{interaction2.user.display_name} sent an audible: {choice}!**\n{url}"
-            )
-
-    class DropdownView(discord.ui.View):
-        def __init__(self):
-            super().__init__()
-            self.add_item(Dropdown())
-
-    await interaction.response.send_message(
-        "Choose your audible below:",
-        view=DropdownView(),
-        ephemeral=False
+    select = discord.ui.Select(
+        placeholder="Choose your audible!",
+        min_values=1,
+        max_values=1,
+        options=options
     )
 
-# Run the bot using your Railway environment variable for the token
+    async def select_callback(interaction2: discord.Interaction):
+        choice = select.values[0]
+        selected = AUDIBLES[choice]
+        embed = discord.Embed(
+            title=f"🔊 {choice}",
+            description=selected["description"],
+            color=discord.Color.blue()
+        )
+        embed.set_video(url=selected["url"])  # Embeds the MP4 video inside the Discord chat
+        await interaction2.response.send_message(embed=embed)
+
+    select.callback = select_callback
+
+    view = discord.ui.View()
+    view.add_item(select)
+
+    await interaction.response.send_message(
+        "Choose your audible below:", view=view, ephemeral=False
+    )
+
+# Run the bot using your Railway environment variable
 bot.run(os.environ["DISCORD_TOKEN"])
