@@ -12,17 +12,16 @@ AUDIBLES = {
         "description": "Classic jump scare",
         "emoji": "🎃"
     },
-    "WelcomeExpectingYou": {
-        "url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4",
-        "description": "Welcome announcement",
-        "emoji": "👋"
-    },
     "ReallyLonelyBeingYou": {
         "url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4",
         "description": "A tragic roast",
         "emoji": "😢"
     },
-    # Add more here using the same format
+    "WelcomeExpectingYou": {
+        "url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4",
+        "description": "Warm fuzzy welcome",
+        "emoji": "👋"
+    },
 }
 
 @bot.event
