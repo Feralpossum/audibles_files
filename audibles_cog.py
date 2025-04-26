@@ -1,6 +1,6 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
+from discord import app_commands
 
 AUDIBLES = {
     "Boo": {
@@ -20,11 +20,11 @@ AUDIBLES = {
     },
 }
 
-class Audibles(commands.Cog):
+class AudiblesCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="audible", description="Send an audible from the list")
+    @app_commands.command(name="audible", description="Send an audible")
     async def audible(self, interaction: discord.Interaction):
         options = [
             discord.SelectOption(
@@ -63,4 +63,4 @@ class Audibles(commands.Cog):
         )
 
 async def setup(bot):
-    await bot.add_cog(Audibles(bot))
+    await bot.add_cog(AudiblesCog(bot))
