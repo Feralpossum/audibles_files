@@ -1,14 +1,16 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
+import aiohttp
+import io
 import os
 
 # Bot setup
 intents = discord.Intents.default()
-intents.message_content = True  # Fix for Discord message content warning
+intents.message_content = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# Your audible MP4s hosted on Vercel
+# Your 20 audible MP4s hosted on Vercel
 AUDIBLES = {
     "Boo": {
         "url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4",
@@ -109,7 +111,7 @@ AUDIBLES = {
         "url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4",
         "description": "So bored",
         "emoji": "🥱"
-    },
+    }
 }
 
 # Dropdown selection class
@@ -128,23 +130,34 @@ class Dropdown(discord.ui.Select):
             min_values=1,
             max_values=1,
             options=options,
-            custom_id="audible_dropdown"  # Required for persistence
+            custom_id="audible_dropdown"
         )
 
     async def callback(self, interaction: discord.Interaction):
         choice = self.values[0]
         url = AUDIBLES[choice]["url"]
+
+        # Download file from Vercel into memory
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    await interaction.response.send_message('Could not download file.', ephemeral=True)
+                    return
+                data = io.BytesIO(await resp.read())
+
+        file = discord.File(data, filename=f"{choice}.mp4")
         await interaction.response.send_message(
-            f"🔊 **{interaction.user.display_name} sent an audible: {choice}!**\n{url}"
+            f"🔊 **{interaction.user.display_name} sent an audible: {choice}!**",
+            file=file
         )
 
 # Dropdown view class
 class DropdownView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=None)  # Required for persistence
+        super().__init__(timeout=None)
         self.add_item(Dropdown())
 
-# Bot startup event
+# Bot startup
 @bot.event
 async def on_ready():
     print(f"Bot is ready. Logged in as {bot.user}")
@@ -154,17 +167,16 @@ async def on_ready():
     except Exception as e:
         print(f"Error syncing commands: {e}")
 
-    # Register the persistent DropdownView globally
     bot.add_view(DropdownView())
 
-# Slash command to trigger audibles
+# Slash command
 @bot.tree.command(name="audible", description="Send an audible from the list")
 async def audible(interaction: discord.Interaction):
     await interaction.response.send_message(
         "Choose your audible below:",
-        view=DropdownView(),  # Fresh view per interaction
+        view=DropdownView(),
         ephemeral=False
     )
 
-# Run the bot using Railway environment variable
+# Run bot
 bot.run(os.environ["DISCORD_TOKEN"])
