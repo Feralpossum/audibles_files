@@ -133,23 +133,21 @@ class Dropdown(discord.ui.Select):
             custom_id="audible_dropdown"
         )
 
-    async def callback(self, interaction: discord.Interaction):
-        choice = self.values[0]
-        url = AUDIBLES[choice]["url"]
+async def callback(self, interaction: discord.Interaction):
+    choice = self.values[0]
+    url = AUDIBLES[choice]["url"]
 
-        # Download file from Vercel into memory
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as resp:
-                if resp.status != 200:
-                    await interaction.response.send_message('Could not download file.', ephemeral=True)
-                    return
-                data = io.BytesIO(await resp.read())
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            if resp.status != 200:
+                await interaction.response.send_message('Could not download file.', ephemeral=True)
+                return
+            data = io.BytesIO(await resp.read())
 
-        file = discord.File(data, filename=f"{choice}.mp4")
-        await interaction.response.send_message(
-            f"🔊 **{interaction.user.display_name} sent an audible: {choice}!**",
-            file=file
-        )
+    file = discord.File(data, filename=f"{choice}.mp4")
+
+    # Send ONLY the file (no extra message text)
+    await interaction.response.send_message(file=file)
 
 # Dropdown view class
 class DropdownView(discord.ui.View):
