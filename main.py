@@ -133,21 +133,22 @@ class Dropdown(discord.ui.Select):
             custom_id="audible_dropdown"
         )
 
-async def callback(self, interaction: discord.Interaction):
-    choice = self.values[0]
-    url = AUDIBLES[choice]["url"]
+    async def callback(self, interaction: discord.Interaction):
+        choice = self.values[0]
+        url = AUDIBLES[choice]["url"]
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            if resp.status != 200:
-                await interaction.response.send_message('Could not download file.', ephemeral=True)
-                return
-            data = io.BytesIO(await resp.read())
+        await interaction.response.defer()  # ✅ Acknowledge immediately to avoid timeout
 
-    file = discord.File(data, filename=f"{choice}.mp4")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    await interaction.followup.send('Could not download file.', ephemeral=True)
+                    return
+                data = io.BytesIO(await resp.read())
 
-    # Send ONLY the file (no extra message text)
-    await interaction.response.send_message(file=file)
+        file = discord.File(data, filename=f"{choice}.mp4")
+
+        await interaction.followup.send(file=file)  # ✅ Final file upload (autoplay)
 
 # Dropdown view class
 class DropdownView(discord.ui.View):
@@ -155,7 +156,7 @@ class DropdownView(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(Dropdown())
 
-# Bot startup
+# Bot startup event
 @bot.event
 async def on_ready():
     print(f"Bot is ready. Logged in as {bot.user}")
