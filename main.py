@@ -5,8 +5,7 @@ import os
 
 # Bot setup
 intents = discord.Intents.default()
-intents.message_content = True  # To fix warning in logs
-
+intents.message_content = True  # Fix for Discord message content warning
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # Your audible MP4s hosted on Vercel
@@ -43,7 +42,8 @@ class Dropdown(discord.ui.Select):
             placeholder="Choose your audible!",
             min_values=1,
             max_values=1,
-            options=options
+            options=options,
+            custom_id="audible_dropdown"  # Required for persistence
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -56,10 +56,10 @@ class Dropdown(discord.ui.Select):
 # Dropdown view class
 class DropdownView(discord.ui.View):
     def __init__(self):
-        super().__init__()
+        super().__init__(timeout=None)  # Required for persistence
         self.add_item(Dropdown())
 
-# Bot startup
+# Bot startup event
 @bot.event
 async def on_ready():
     print(f"Bot is ready. Logged in as {bot.user}")
@@ -69,17 +69,17 @@ async def on_ready():
     except Exception as e:
         print(f"Error syncing commands: {e}")
 
-    # Register the persistent dropdown view
+    # Register the persistent DropdownView globally
     bot.add_view(DropdownView())
 
-# Slash command to trigger the audible dropdown
+# Slash command to trigger audibles
 @bot.tree.command(name="audible", description="Send an audible from the list")
 async def audible(interaction: discord.Interaction):
     await interaction.response.send_message(
         "Choose your audible below:",
-        view=DropdownView(),
+        view=DropdownView(),  # Fresh view per interaction
         ephemeral=False
     )
 
-# Start the bot using Railway environment variable
+# Run the bot using Railway environment variable
 bot.run(os.environ["DISCORD_TOKEN"])
