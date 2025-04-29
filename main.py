@@ -4,37 +4,22 @@ from discord import app_commands
 import aiohttp
 import io
 import os
-from aiohttp import web
-import asyncio
 import subprocess
+import asyncio
+from aiohttp import web
 
-# Download a portable ffmpeg if not found
+# --- Auto download ffmpeg if missing ---
 if not os.path.exists("./ffmpeg"):
     subprocess.run([
-        "wget", "-O", "ffmpeg",
+        "wget", "-O", "ffmpeg.tar.xz",
         "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz"
     ])
-    subprocess.run([
-        "tar", "xf", "ffmpeg-release-i686-static.tar.xz"
-    ])
-    subprocess.run([
-        "mv", "ffmpeg-*-static/ffmpeg", "./ffmpeg"
-    ])
-    subprocess.run([
-        "chmod", "+x", "./ffmpeg"
-    ])
-    print("✅ Downloaded and installed ffmpeg locally.")
+    subprocess.run(["tar", "xf", "ffmpeg.tar.xz"])
+    subprocess.run(["mv", "ffmpeg-*-static/ffmpeg", "./ffmpeg"])
+    subprocess.run(["chmod", "+x", "./ffmpeg"])
+    print("✅ Downloaded and installed local ffmpeg.")
 
-import subprocess
-
-try:
-    subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
-    print("✅ FFmpeg is installed.")
-except Exception as e:
-    print("❌ FFmpeg is NOT installed or not found:", e)
-
-
-# --- Keep alive aiohttp webserver ---
+# --- Keep alive aiohttp server ---
 async def home(request):
     return web.Response(text="Bot is running!")
 
@@ -52,7 +37,7 @@ intents.message_content = True
 intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# --- Your 20 audibles ---
+# --- 20 audibles ---
 AUDIBLES = {
     "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3", "description": "Classic jump scare", "emoji": "🎃"},
     "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3", "description": "Over it already", "emoji": "🏁"},
@@ -79,11 +64,8 @@ AUDIBLES = {
 # --- Dropdown and interaction ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
-        options = [
-            discord.SelectOption(label=name, description=data["description"], emoji=data.get("emoji"))
-            for name, data in AUDIBLES.items()
-        ]
-        super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options, custom_id="audible_dropdown")
+        options = [discord.SelectOption(label=name, description=data["description"], emoji=data.get("emoji")) for name, data in AUDIBLES.items()]
+        super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
         choice = self.values[0]
@@ -93,7 +75,7 @@ class Dropdown(discord.ui.Select):
 
         await interaction.response.defer()
 
-        # Voice channel play
+        # Join voice and play sound
         if interaction.user.voice and mp3_url:
             try:
                 vc = await interaction.user.voice.channel.connect()
@@ -101,19 +83,15 @@ class Dropdown(discord.ui.Select):
                     async with session.get(mp3_url) as resp:
                         if resp.status == 200:
                             data = io.BytesIO(await resp.read())
-                          audio_source = discord.FFmpegPCMAudio(
-    data,
-    pipe=True,
-    executable="./ffmpeg"
-)
-
+                            audio_source = discord.FFmpegPCMAudio(data, pipe=True, executable="./ffmpeg")
+                            vc.play(audio_source)
                             while vc.is_playing():
                                 await asyncio.sleep(1)
                             await vc.disconnect()
             except Exception as e:
                 print(f"Voice playback error: {e}")
 
-        # Send MP4 file in chat
+        # Send MP4 visual
         async with aiohttp.ClientSession() as session:
             async with session.get(mp4_url) as resp:
                 if resp.status == 200:
@@ -140,7 +118,7 @@ async def on_ready():
 async def audible(interaction: discord.Interaction):
     await interaction.response.send_message("Choose your audible below:", view=DropdownView(), ephemeral=False)
 
-# --- Launch keep alive + bot properly ---
+# --- Launch everything ---
 async def main():
     asyncio.create_task(run_keep_alive())
     await bot.start(os.environ["DISCORD_TOKEN"])
