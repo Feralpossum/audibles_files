@@ -2,14 +2,15 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import aiohttp
+import asyncio
 import io
 import os
-import asyncio
+import subprocess
 from aiohttp import web
 
 # --- Keep alive aiohttp webserver ---
 async def home(request):
-    return web.Response(text="Bot is running!")
+    return web.Response(text="Bot is alive!")
 
 async def run_keep_alive():
     app = web.Application()
@@ -22,6 +23,7 @@ async def run_keep_alive():
 # --- Bot setup ---
 intents = discord.Intents.default()
 intents.message_content = True
+intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- 20 Audibles ---
@@ -45,7 +47,7 @@ AUDIBLES = {
     "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?", "emoji": "🤨"},
     "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "description": "Shake it off", "emoji": "🕺"},
     "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🥱"}
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🥱"},
 }
 
 # --- Dropdown Menu ---
@@ -61,7 +63,38 @@ class Dropdown(discord.ui.Select):
 
         await interaction.response.defer()
 
-        # Fetch and send MP4 in chat
+        # If user is in VC, join and play
+        if interaction.user.voice and interaction.user.voice.channel:
+            vc = await interaction.user.voice.channel.connect()
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(mp4_url) as resp:
+                    if resp.status == 200:
+                        data = io.BytesIO(await resp.read())
+
+                        # Create subprocess to extract MP3 and stream
+                        ffmpeg_cmd = [
+                            "./ffmpeg", "-i", "pipe:0",
+                            "-f", "s16le",
+                            "-ar", "48000",
+                            "-ac", "2",
+                            "pipe:1"
+                        ]
+                        process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                        ffmpeg_input, ffmpeg_output = process.stdin, process.stdout
+
+                        ffmpeg_input.write(data.getbuffer())
+                        ffmpeg_input.close()
+
+                        audio = discord.PCMAudio(ffmpeg_output)
+                        vc.play(audio)
+
+                        # Disconnect when done
+                        while vc.is_playing():
+                            await asyncio.sleep(1)
+                        await vc.disconnect()
+
+        # Also send the MP4 to chat
         async with aiohttp.ClientSession() as session:
             async with session.get(mp4_url) as resp:
                 if resp.status == 200:
