@@ -8,6 +8,25 @@ from aiohttp import web
 import asyncio
 import subprocess
 
+# Download a portable ffmpeg if not found
+if not os.path.exists("./ffmpeg"):
+    subprocess.run([
+        "wget", "-O", "ffmpeg",
+        "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz"
+    ])
+    subprocess.run([
+        "tar", "xf", "ffmpeg-release-i686-static.tar.xz"
+    ])
+    subprocess.run([
+        "mv", "ffmpeg-*-static/ffmpeg", "./ffmpeg"
+    ])
+    subprocess.run([
+        "chmod", "+x", "./ffmpeg"
+    ])
+    print("✅ Downloaded and installed ffmpeg locally.")
+
+import subprocess
+
 try:
     subprocess.run(["ffmpeg", "-version"], check=True, capture_output=True)
     print("✅ FFmpeg is installed.")
@@ -82,8 +101,11 @@ class Dropdown(discord.ui.Select):
                     async with session.get(mp3_url) as resp:
                         if resp.status == 200:
                             data = io.BytesIO(await resp.read())
-                            audio_source = discord.FFmpegPCMAudio(data, pipe=True)
-                            vc.play(audio_source)
+                          audio_source = discord.FFmpegPCMAudio(
+    data,
+    pipe=True,
+    executable="./ffmpeg"
+)
 
                             while vc.is_playing():
                                 await asyncio.sleep(1)
