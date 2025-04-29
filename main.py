@@ -4,22 +4,10 @@ from discord import app_commands
 import aiohttp
 import io
 import os
-import subprocess
 import asyncio
 from aiohttp import web
 
-# --- Auto download ffmpeg if missing ---
-if not os.path.exists("./ffmpeg"):
-    subprocess.run([
-        "wget", "-O", "ffmpeg.tar.xz",
-        "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz"
-    ])
-    subprocess.run(["tar", "xf", "ffmpeg.tar.xz"])
-    subprocess.run(["mv", "ffmpeg-*-static/ffmpeg", "./ffmpeg"])
-    subprocess.run(["chmod", "+x", "./ffmpeg"])
-    print("✅ Downloaded and installed local ffmpeg.")
-
-# --- Keep alive aiohttp server ---
+# --- Keep alive aiohttp webserver ---
 async def home(request):
     return web.Response(text="Bot is running!")
 
@@ -34,34 +22,33 @@ async def run_keep_alive():
 # --- Bot setup ---
 intents = discord.Intents.default()
 intents.message_content = True
-intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# --- 20 audibles ---
+# --- 20 Audibles ---
 AUDIBLES = {
-    "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3", "description": "Classic jump scare", "emoji": "🎃"},
-    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3", "description": "Over it already", "emoji": "🏁"},
-    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp3", "description": "Careful... it's wet!", "emoji": "🧹"},
-    "FatGuysNoMoney": {"url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp3", "description": "Hard relatable moment", "emoji": "💸"},
-    "FromADrunkenMonkey": {"url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp3", "description": "Monkey mayhem", "emoji": "🐒"},
-    "GreatestEVER": {"url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp3", "description": "All-time hype", "emoji": "🏆"},
-    "INeverWinYouSuck": {"url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp3", "description": "Ultimate sore loser", "emoji": "😡"},
-    "KeepPunching": {"url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp3", "description": "Fight back!", "emoji": "🥊"},
-    "LovesomeLovesomeNot": {"url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp3", "description": "Love's a battlefield", "emoji": "💔"},
-    "Mmm_roar": {"url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp3", "description": "Rawr means love", "emoji": "🦁"},
-    "Mwahahaha": {"url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp3", "description": "Evil laugh", "emoji": "😈"},
-    "NotEvenSameZipCodeFunny": {"url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp3", "description": "You're not even close!", "emoji": "🏡"},
-    "Pleasestandstill": {"url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp3", "description": "Deer in headlights", "emoji": "🦌"},
-    "ReallyLonelyBeingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp3", "description": "A tragic roast", "emoji": "😢"},
-    "Sandwich": {"url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp3", "description": "Time for lunch", "emoji": "🥪"},
-    "Score": {"url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Score.mp3", "description": "Winning!", "emoji": "🏅"},
-    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp3", "description": "Are you even trying?", "emoji": "🤨"},
-    "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp3", "description": "Shake it off", "emoji": "🕺"},
-    "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp3", "description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "audio": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp3", "description": "So bored", "emoji": "🥱"}
+    "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "description": "Classic jump scare", "emoji": "🎃"},
+    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "description": "Over it already", "emoji": "🏁"},
+    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "description": "Careful... it's wet!", "emoji": "🧹"},
+    "FatGuysNoMoney": {"url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "description": "Hard relatable moment", "emoji": "💸"},
+    "FromADrunkenMonkey": {"url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "description": "Monkey mayhem", "emoji": "🐒"},
+    "GreatestEVER": {"url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "description": "All-time hype", "emoji": "🏆"},
+    "INeverWinYouSuck": {"url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp4", "description": "Ultimate sore loser", "emoji": "😡"},
+    "KeepPunching": {"url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp4", "description": "Fight back!", "emoji": "🥊"},
+    "LovesomeLovesomeNot": {"url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp4", "description": "Love's a battlefield", "emoji": "💔"},
+    "Mmm_roar": {"url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp4", "description": "Rawr means love", "emoji": "🦁"},
+    "Mwahahaha": {"url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp4", "description": "Evil laugh", "emoji": "😈"},
+    "NotEvenSameZipCodeFunny": {"url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp4", "description": "You're not even close!", "emoji": "🏡"},
+    "Pleasestandstill": {"url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp4", "description": "Deer in headlights", "emoji": "🦌"},
+    "ReallyLonelyBeingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "description": "A tragic roast", "emoji": "😢"},
+    "Sandwich": {"url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "description": "Time for lunch", "emoji": "🥪"},
+    "Score": {"url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "description": "Winning!", "emoji": "🏅"},
+    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?", "emoji": "🤨"},
+    "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "description": "Shake it off", "emoji": "🕺"},
+    "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "description": "Grand entrance", "emoji": "🎉"},
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🥱"}
 }
 
-# --- Dropdown and interaction ---
+# --- Dropdown Menu ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [discord.SelectOption(label=name, description=data["description"], emoji=data.get("emoji")) for name, data in AUDIBLES.items()]
@@ -71,27 +58,10 @@ class Dropdown(discord.ui.Select):
         choice = self.values[0]
         audible = AUDIBLES[choice]
         mp4_url = audible["url"]
-        mp3_url = audible.get("audio")
 
         await interaction.response.defer()
 
-        # Join voice and play sound
-        if interaction.user.voice and mp3_url:
-            try:
-                vc = await interaction.user.voice.channel.connect()
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(mp3_url) as resp:
-                        if resp.status == 200:
-                            data = io.BytesIO(await resp.read())
-                            audio_source = discord.FFmpegPCMAudio(data, pipe=True, executable="./ffmpeg")
-                            vc.play(audio_source)
-                            while vc.is_playing():
-                                await asyncio.sleep(1)
-                            await vc.disconnect()
-            except Exception as e:
-                print(f"Voice playback error: {e}")
-
-        # Send MP4 visual
+        # Fetch and send MP4 in chat
         async with aiohttp.ClientSession() as session:
             async with session.get(mp4_url) as resp:
                 if resp.status == 200:
