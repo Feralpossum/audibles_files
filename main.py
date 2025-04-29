@@ -63,44 +63,41 @@ class Dropdown(discord.ui.Select):
 
         await interaction.response.defer()
 
-        # If user is in VC, join and play
+        # --- Fetch MP4 ---
+        async with aiohttp.ClientSession() as session:
+            async with session.get(mp4_url) as resp:
+                if resp.status != 200:
+                    await interaction.followup.send(f"Error fetching MP4 for {choice}.")
+                    return
+                data = io.BytesIO(await resp.read())
+
+        # --- Parallel task: Send MP4 to chat immediately ---
+        asyncio.create_task(interaction.followup.send(file=discord.File(data, filename=f"{choice}.mp4")))
+
+        # --- If user in VC, join and play ---
         if interaction.user.voice and interaction.user.voice.channel:
             vc = await interaction.user.voice.channel.connect()
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(mp4_url) as resp:
-                    if resp.status == 200:
-                        data = io.BytesIO(await resp.read())
+            ffmpeg_cmd = [
+                "./ffmpeg", "-i", "pipe:0",
+                "-f", "s16le",
+                "-ar", "48000",
+                "-ac", "2",
+                "pipe:1"
+            ]
+            process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            ffmpeg_input, ffmpeg_output = process.stdin, process.stdout
 
-                        # Create subprocess to extract MP3 and stream
-                        ffmpeg_cmd = [
-                            "./ffmpeg", "-i", "pipe:0",
-                            "-f", "s16le",
-                            "-ar", "48000",
-                            "-ac", "2",
-                            "pipe:1"
-                        ]
-                        process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-                        ffmpeg_input, ffmpeg_output = process.stdin, process.stdout
+            ffmpeg_input.write(data.getbuffer())
+            ffmpeg_input.close()
 
-                        ffmpeg_input.write(data.getbuffer())
-                        ffmpeg_input.close()
+            audio = discord.PCMAudio(ffmpeg_output)
+            vc.play(audio)
 
-                        audio = discord.PCMAudio(ffmpeg_output)
-                        vc.play(audio)
-
-                        # Disconnect when done
-                        while vc.is_playing():
-                            await asyncio.sleep(1)
-                        await vc.disconnect()
-
-        # Also send the MP4 to chat
-        async with aiohttp.ClientSession() as session:
-            async with session.get(mp4_url) as resp:
-                if resp.status == 200:
-                    data = io.BytesIO(await resp.read())
-                    file = discord.File(data, filename=f"{choice}.mp4")
-                    await interaction.followup.send(file=file)
+            # Disconnect after playing
+            while vc.is_playing():
+                await asyncio.sleep(1)
+            await vc.disconnect()
 
 class DropdownView(discord.ui.View):
     def __init__(self):
