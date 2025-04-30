@@ -8,9 +8,9 @@ import os
 import subprocess
 from aiohttp import web
 
-# --- Keep-alive ping webserver ---
+# --- Keep-alive ---
 async def home(request):
-    return web.Response(text="Bot is alive!")
+    return web.Response(text="Bot is alive.")
 
 async def run_keep_alive():
     app = web.Application()
@@ -20,16 +20,14 @@ async def run_keep_alive():
     site = web.TCPSite(runner, "0.0.0.0", port=int(os.environ.get("PORT", 8080)))
     await site.start()
 
-# --- Bot Setup ---
+# --- Base setup ---
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# --- Base URL for Vercel assets ---
 BASE_URL = "https://audiblesfiles-qsvgvhyeq-karls-projects-20dd944d.vercel.app/Audibles"
 
-# --- All Audibles ---
 AUDIBLES = {
     "Boo": {"description": "Classic jump scare", "emoji": "🎃"},
     "DoneLosing": {"description": "Over it already", "emoji": "🏁"},
@@ -53,59 +51,63 @@ AUDIBLES = {
     "Yawn": {"description": "So bored", "emoji": "🥱"},
 }
 
-# --- Dropdown UI ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
-        options = [discord.SelectOption(label=name, description=data["description"], emoji=data["emoji"]) for name, data in AUDIBLES.items()]
-        super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options)
+        options = [
+            discord.SelectOption(label=name, description=data["description"], emoji=data["emoji"])
+            for name, data in AUDIBLES.items()
+        ]
+        super().__init__(placeholder="Choose your audible", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
         choice = self.values[0]
         mp4_url = f"{BASE_URL}/{choice}.mp4"
         mp3_url = f"{BASE_URL}/{choice}.mp3"
-
         await interaction.response.defer()
 
-        # --- Send video in chat ---
+        # --- Send MP4 (visual) ---
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(mp4_url) as resp:
-                    if resp.status != 200:
-                        await interaction.followup.send(f"Failed to load MP4 for {choice}.")
-                        return
-                    mp4_data = io.BytesIO(await resp.read())
-                    await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
+                    if resp.status == 200:
+                        mp4_data = io.BytesIO(await resp.read())
+                        await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
+                    else:
+                        await interaction.followup.send(f"⚠️ Couldn't fetch MP4 (status {resp.status}). Skipping visual.")
         except Exception as e:
-            await interaction.followup.send(f"Error sending video: {e}")
+            await interaction.followup.send(f"❌ MP4 error: {e}")
 
-        # --- Play audio in VC ---
+        # --- Play MP3 in VC ---
         if interaction.user.voice and interaction.user.voice.channel:
             try:
-                vc = interaction.guild.voice_client or await interaction.user.voice.channel.connect()
+                vc = interaction.guild.voice_client
+                if not vc:
+                    vc = await interaction.user.voice.channel.connect()
 
                 async with aiohttp.ClientSession() as session:
                     async with session.get(mp3_url) as resp:
                         if resp.status != 200:
-                            await interaction.followup.send(f"Failed to load MP3 for {choice}.")
+                            await interaction.followup.send(f"⚠️ Couldn't fetch MP3 (status {resp.status}).")
                             return
                         mp3_data = await resp.read()
 
-                ffmpeg = subprocess.Popen(
+                process = subprocess.Popen(
                     ["./ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
                     stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
+                    stdout=subprocess.PIPE
                 )
-                ffmpeg.stdin.write(mp3_data)
-                ffmpeg.stdin.close()
-                audio = discord.PCMAudio(ffmpeg.stdout)
+                process.stdin.write(mp3_data)
+                process.stdin.close()
 
+                audio = discord.PCMAudio(process.stdout)
                 vc.play(audio)
+
                 while vc.is_playing():
                     await asyncio.sleep(1)
                 await vc.disconnect()
+
             except Exception as e:
-                await interaction.followup.send(f"Voice playback error: {e}")
+                await interaction.followup.send(f"❌ Voice playback error: {e}")
 
 class DropdownView(discord.ui.View):
     def __init__(self):
@@ -114,19 +116,19 @@ class DropdownView(discord.ui.View):
 
 @bot.event
 async def on_ready():
-    print(f"Bot is ready. Logged in as {bot.user}")
+    print(f"✅ Bot is ready: {bot.user}")
     try:
         synced = await bot.tree.sync()
-        print(f"✔️ Synced {len(synced)} slash commands.")
+        print(f"✅ Synced {len(synced)} slash commands.")
     except Exception as e:
-        print(f"❌ Sync failed: {e}")
+        print(f"❌ Sync error: {e}")
     bot.add_view(DropdownView())
 
-@bot.tree.command(name="audible", description="Send an audible from the list")
+@bot.tree.command(name="audible", description="Play an audible!")
 async def audible(interaction: discord.Interaction):
-    await interaction.response.send_message("Choose your audible below:", view=DropdownView(), ephemeral=False)
+    await interaction.response.send_message("Choose your audible:", view=DropdownView())
 
-# --- Run Bot ---
+# --- Run ---
 async def main():
     asyncio.create_task(run_keep_alive())
     await bot.start(os.environ["DISCORD_TOKEN"])
