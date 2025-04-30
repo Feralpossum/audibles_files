@@ -5,9 +5,10 @@ import aiohttp
 import asyncio
 import io
 import os
+import subprocess
 from aiohttp import web
 
-# --- Keep Alive for Railway ---
+# --- Keep-alive server ---
 async def home(request):
     return web.Response(text="Bot is alive!")
 
@@ -19,38 +20,37 @@ async def run_keep_alive():
     site = web.TCPSite(runner, "0.0.0.0", port=int(os.environ.get("PORT", 8080)))
     await site.start()
 
-# --- Bot Setup ---
+# --- Discord Setup ---
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# --- Audibles (20 total) ---
-BASE_URL = "https://audiblesfiles.vercel.app/Audibles"
+# --- Audibles Config ---
 AUDIBLES = {
-    "Boo": {"description": "Classic jump scare", "emoji": "🎃"},
-    "DoneLosing": {"description": "Over it already", "emoji": "🏁"},
-    "DontSlipMoppingFloor": {"description": "Careful... it's wet!", "emoji": "🧹"},
-    "FatGuysNoMoney": {"description": "Hard relatable moment", "emoji": "💸"},
-    "FromADrunkenMonkey": {"description": "Monkey mayhem", "emoji": "🐒"},
-    "GreatestEVER": {"description": "All-time hype", "emoji": "🏆"},
-    "INeverWinYouSuck": {"description": "Ultimate sore loser", "emoji": "😡"},
-    "KeepPunching": {"description": "Fight back!", "emoji": "🥊"},
-    "LovesomeLovesomeNot": {"description": "Love's a battlefield", "emoji": "💔"},
-    "Mmm_roar": {"description": "Rawr means love", "emoji": "🦁"},
-    "Mwahahaha": {"description": "Evil laugh", "emoji": "😈"},
-    "NotEvenSameZipCodeFunny": {"description": "You're not even close!", "emoji": "🏡"},
-    "Pleasestandstill": {"description": "Deer in headlights", "emoji": "🦌"},
-    "ReallyLonelyBeingYou": {"description": "A tragic roast", "emoji": "😢"},
-    "Sandwich": {"description": "Time for lunch", "emoji": "🥪"},
-    "Score": {"description": "Winning!", "emoji": "🏅"},
-    "SeriouslyEvenTrying": {"description": "Are you even trying?", "emoji": "🤨"},
-    "ShakeLikeItDidntHurt": {"description": "Shake it off", "emoji": "🕺"},
-    "WelcomeExpectingYou": {"description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"description": "So bored", "emoji": "🥱"},
+    "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3", "description": "Classic jump scare", "emoji": "🎃"},
+    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3", "description": "Over it already", "emoji": "🏁"},
+    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp3", "description": "Careful... it's wet!", "emoji": "🧹"},
+    "FatGuysNoMoney": {"url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp3", "description": "Hard relatable moment", "emoji": "💸"},
+    "FromADrunkenMonkey": {"url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp3", "description": "Monkey mayhem", "emoji": "🐒"},
+    "GreatestEVER": {"url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp3", "description": "All-time hype", "emoji": "🏆"},
+    "INeverWinYouSuck": {"url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp3", "description": "Ultimate sore loser", "emoji": "😡"},
+    "KeepPunching": {"url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp3", "description": "Fight back!", "emoji": "🥊"},
+    "LovesomeLovesomeNot": {"url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp3", "description": "Love's a battlefield", "emoji": "💔"},
+    "Mmm_roar": {"url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp3", "description": "Rawr means love", "emoji": "🦁"},
+    "Mwahahaha": {"url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp3", "description": "Evil laugh", "emoji": "😈"},
+    "NotEvenSameZipCodeFunny": {"url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp3", "description": "You're not even close!", "emoji": "🏡"},
+    "Pleasestandstill": {"url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp3", "description": "Deer in headlights", "emoji": "🦌"},
+    "ReallyLonelyBeingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp3", "description": "A tragic roast", "emoji": "😢"},
+    "Sandwich": {"url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp3", "description": "Time for lunch", "emoji": "🥪"},
+    "Score": {"url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Score.mp3", "description": "Winning!", "emoji": "🏅"},
+    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp3", "description": "Are you even trying?", "emoji": "🤨"},
+    "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp3", "description": "Shake it off", "emoji": "🕺"},
+    "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp3", "description": "Grand entrance", "emoji": "🎉"},
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp3", "description": "So bored", "emoji": "🥱"},
 }
 
-# --- Dropdown UI ---
+# --- Dropdown Logic ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [
@@ -61,61 +61,68 @@ class Dropdown(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         choice = self.values[0]
-        mp4_url = f"{BASE_URL}/{choice}.mp4"
-        mp3_url = f"{BASE_URL}/{choice}.mp3"
+        audible = AUDIBLES[choice]
 
         await interaction.response.defer()
 
-        # Step 1: Post MP4 to chat
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(mp4_url) as resp:
-                    if resp.status == 200:
-                        file_bytes = io.BytesIO(await resp.read())
-                        await interaction.followup.send(file=discord.File(file_bytes, filename=f"{choice}.mp4"))
-                    else:
-                        await interaction.followup.send(f"❌ Couldn't load MP4 for `{choice}`.")
-        except Exception as e:
-            await interaction.followup.send(f"❌ MP4 error: {e}")
-            return
+        # Send MP4 file to chat immediately
+        async with aiohttp.ClientSession() as session:
+            async with session.get(audible["url"]) as resp:
+                if resp.status != 200:
+                    await interaction.followup.send(f"Could not fetch MP4 for {choice}")
+                    return
+                mp4_data = io.BytesIO(await resp.read())
+                await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
 
-        # Step 2: Play MP3 if user is in voice
+        # If user is in a voice channel, play the MP3
         if interaction.user.voice and interaction.user.voice.channel:
+            vc = await interaction.user.voice.channel.connect()
+
             try:
-                vc = await interaction.user.voice.channel.connect()
-                audio = discord.FFmpegPCMAudio(mp3_url, executable="./ffmpeg")
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(audible["mp3_url"]) as resp:
+                        if resp.status != 200:
+                            await interaction.followup.send("Could not fetch MP3 for voice playback.")
+                            return
+                        mp3_data = await resp.read()
+
+                process = subprocess.Popen(
+                    ["./ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL
+                )
+                pcm_audio, _ = process.communicate(mp3_data)
+
+                audio = discord.PCMAudio(io.BytesIO(pcm_audio))
                 vc.play(audio)
 
                 while vc.is_playing():
                     await asyncio.sleep(1)
-
                 await vc.disconnect()
-            except Exception as e:
-                await interaction.followup.send(f"🔇 Voice playback error: {e}")
 
-# --- View Container ---
+            except Exception as e:
+                await interaction.followup.send(f"Voice playback error: {e}")
+                if vc.is_connected():
+                    await vc.disconnect()
+
 class DropdownView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(Dropdown())
 
-# --- Ready Event ---
+# --- Ready and Commands ---
 @bot.event
 async def on_ready():
     print(f"Bot is ready. Logged in as {bot.user}")
-    try:
-        await bot.tree.sync()
-        print("✅ Slash commands synced.")
-    except Exception as e:
-        print(f"❌ Sync error: {e}")
+    await bot.tree.sync()
     bot.add_view(DropdownView())
 
-# --- Slash Command ---
-@bot.tree.command(name="audible", description="Send an audible with voice + video")
+@bot.tree.command(name="audible", description="Send an audible from the list")
 async def audible(interaction: discord.Interaction):
-    await interaction.response.send_message("🎧 Choose an audible:", view=DropdownView(), ephemeral=False)
+    await interaction.response.send_message("Choose your audible below:", view=DropdownView(), ephemeral=False)
 
-# --- Main Entry ---
+# --- Run ---
 async def main():
     asyncio.create_task(run_keep_alive())
     await bot.start(os.environ["DISCORD_TOKEN"])
