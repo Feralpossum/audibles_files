@@ -8,9 +8,9 @@ import os
 import subprocess
 from aiohttp import web
 
-# --- Keep-alive ---
+# --- Keep-alive webserver for Railway ---
 async def home(request):
-    return web.Response(text="Bot is alive.")
+    return web.Response(text="Bot is alive!")
 
 async def run_keep_alive():
     app = web.Application()
@@ -20,14 +20,17 @@ async def run_keep_alive():
     site = web.TCPSite(runner, "0.0.0.0", port=int(os.environ.get("PORT", 8080)))
     await site.start()
 
-# --- Base setup ---
+# --- Discord Bot Setup ---
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
+# --- Vercel Static Base URL ---
 BASE_URL = "https://audiblesfiles-qsvgvhyeq-karls-projects-20dd944d.vercel.app/Audibles"
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
+# --- 20 Audibles ---
 AUDIBLES = {
     "Boo": {"description": "Classic jump scare", "emoji": "🎃"},
     "DoneLosing": {"description": "Over it already", "emoji": "🏁"},
@@ -51,33 +54,35 @@ AUDIBLES = {
     "Yawn": {"description": "So bored", "emoji": "🥱"},
 }
 
+# --- Dropdown Menu ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [
             discord.SelectOption(label=name, description=data["description"], emoji=data["emoji"])
             for name, data in AUDIBLES.items()
         ]
-        super().__init__(placeholder="Choose your audible", min_values=1, max_values=1, options=options)
+        super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
         choice = self.values[0]
         mp4_url = f"{BASE_URL}/{choice}.mp4"
         mp3_url = f"{BASE_URL}/{choice}.mp3"
+
         await interaction.response.defer()
 
-        # --- Send MP4 (visual) ---
+        # --- Send MP4 (Visual) ---
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(mp4_url) as resp:
+                async with session.get(mp4_url, headers=HEADERS) as resp:
                     if resp.status == 200:
                         mp4_data = io.BytesIO(await resp.read())
                         await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
                     else:
-                        await interaction.followup.send(f"⚠️ Couldn't fetch MP4 (status {resp.status}). Skipping visual.")
+                        await interaction.followup.send(f"⚠️ Couldn't fetch MP4 for `{choice}` (HTTP {resp.status})")
         except Exception as e:
             await interaction.followup.send(f"❌ MP4 error: {e}")
 
-        # --- Play MP3 in VC ---
+        # --- Join VC and Play MP3 ---
         if interaction.user.voice and interaction.user.voice.channel:
             try:
                 vc = interaction.guild.voice_client
@@ -85,9 +90,9 @@ class Dropdown(discord.ui.Select):
                     vc = await interaction.user.voice.channel.connect()
 
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(mp3_url) as resp:
+                    async with session.get(mp3_url, headers=HEADERS) as resp:
                         if resp.status != 200:
-                            await interaction.followup.send(f"⚠️ Couldn't fetch MP3 (status {resp.status}).")
+                            await interaction.followup.send(f"⚠️ Couldn't fetch MP3 (HTTP {resp.status})")
                             return
                         mp3_data = await resp.read()
 
@@ -105,7 +110,6 @@ class Dropdown(discord.ui.Select):
                 while vc.is_playing():
                     await asyncio.sleep(1)
                 await vc.disconnect()
-
             except Exception as e:
                 await interaction.followup.send(f"❌ Voice playback error: {e}")
 
@@ -124,11 +128,11 @@ async def on_ready():
         print(f"❌ Sync error: {e}")
     bot.add_view(DropdownView())
 
-@bot.tree.command(name="audible", description="Play an audible!")
+@bot.tree.command(name="audible", description="Send and play an audible")
 async def audible(interaction: discord.Interaction):
     await interaction.response.send_message("Choose your audible:", view=DropdownView())
 
-# --- Run ---
+# --- Run Bot ---
 async def main():
     asyncio.create_task(run_keep_alive())
     await bot.start(os.environ["DISCORD_TOKEN"])
