@@ -2,14 +2,15 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import aiohttp
+import asyncio
 import io
 import os
-import asyncio
+import subprocess
 from aiohttp import web
 
 # --- Keep alive aiohttp webserver ---
 async def home(request):
-    return web.Response(text="Bot is running!")
+    return web.Response(text="Bot is alive!")
 
 async def run_keep_alive():
     app = web.Application()
@@ -22,6 +23,7 @@ async def run_keep_alive():
 # --- Bot setup ---
 intents = discord.Intents.default()
 intents.message_content = True
+intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- 20 Audibles ---
@@ -45,29 +47,50 @@ AUDIBLES = {
     "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?", "emoji": "🤨"},
     "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "description": "Shake it off", "emoji": "🕺"},
     "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🥱"}
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🥱"},
 }
 
-# --- Dropdown Menu ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [discord.SelectOption(label=name, description=data["description"], emoji=data.get("emoji")) for name, data in AUDIBLES.items()]
         super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        choice = self.values[0]
-        audible = AUDIBLES[choice]
-        mp4_url = audible["url"]
+        try:
+            await interaction.response.defer()
+            choice = self.values[0]
+            audible = AUDIBLES[choice]
+            mp4_url = audible["url"]
 
-        await interaction.response.defer()
-
-        # Fetch and send MP4 in chat
-        async with aiohttp.ClientSession() as session:
-            async with session.get(mp4_url) as resp:
-                if resp.status == 200:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(mp4_url, timeout=10) as resp:
+                    if resp.status != 200:
+                        await interaction.followup.send(f"Error fetching MP4 for {choice}.")
+                        return
                     data = io.BytesIO(await resp.read())
-                    file = discord.File(data, filename=f"{choice}.mp4")
-                    await interaction.followup.send(file=file)
+
+            asyncio.create_task(interaction.followup.send(file=discord.File(data, filename=f"{choice}.mp4")))
+
+            if interaction.user.voice and interaction.user.voice.channel:
+                try:
+                    vc = await interaction.user.voice.channel.connect()
+                    ffmpeg_cmd = [
+                        "./ffmpeg", "-i", "pipe:0",
+                        "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"
+                    ]
+                    process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                    process.stdin.write(data.getbuffer())
+                    process.stdin.close()
+                    audio = discord.PCMAudio(process.stdout)
+                    vc.play(audio)
+
+                    while vc.is_playing():
+                        await asyncio.sleep(1)
+                    await vc.disconnect()
+                except Exception as e:
+                    await interaction.followup.send(f"Voice playback error: {e}")
+        except Exception as e:
+            await interaction.followup.send(f"Unexpected error: {e}")
 
 class DropdownView(discord.ui.View):
     def __init__(self):
@@ -78,8 +101,8 @@ class DropdownView(discord.ui.View):
 async def on_ready():
     print(f"Bot is ready. Logged in as {bot.user}")
     try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} slash commands.")
+        await bot.tree.sync()
+        print("Slash commands synced.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
     bot.add_view(DropdownView())
@@ -87,6 +110,15 @@ async def on_ready():
 @bot.tree.command(name="audible", description="Send an audible from the list")
 async def audible(interaction: discord.Interaction):
     await interaction.response.send_message("Choose your audible below:", view=DropdownView(), ephemeral=False)
+
+@bot.tree.command(name="ffmpegcheck", description="Check if ffmpeg is working")
+async def ffmpegcheck(interaction: discord.Interaction):
+    try:
+        result = subprocess.run(["./ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        output = result.stdout or result.stderr
+        await interaction.response.send_message(f"```{output[:1900]}```", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"FFmpeg test failed: `{str(e)}`", ephemeral=True)
 
 # --- Launch everything ---
 async def main():
