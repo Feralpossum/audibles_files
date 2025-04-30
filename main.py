@@ -118,6 +118,15 @@ async def on_ready():
 async def audible(interaction: discord.Interaction):
     await interaction.response.send_message("Choose your audible below:", view=DropdownView(), ephemeral=False)
 
+@bot.tree.command(name="ffmpegtest", description="Check if ffmpeg is working")
+async def ffmpegtest(interaction: discord.Interaction):
+    try:
+        result = subprocess.run(["./ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
+        output = result.stdout or result.stderr
+        await interaction.response.send_message(f"```{output[:1900]}```", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"FFmpeg test failed: `{str(e)}`", ephemeral=True)
+
 # --- Launch everything ---
 async def main():
     asyncio.create_task(run_keep_alive())
