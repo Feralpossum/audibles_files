@@ -29,8 +29,8 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 # --- 20 Audibles ---
 AUDIBLES = {
     "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "description": "Classic jump scare", "emoji": "🎃"},
-    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "description": "Over it already", "emoji": "🏁"},
-    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "description": "Careful... it's wet!", "emoji": "🧹"},
+    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "description": "Over it already", "emoji": "🏎"},
+    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "description": "Careful... it's wet!", "emoji": "🭹"},
     "FatGuysNoMoney": {"url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "description": "Hard relatable moment", "emoji": "💸"},
     "FromADrunkenMonkey": {"url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "description": "Monkey mayhem", "emoji": "🐒"},
     "GreatestEVER": {"url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "description": "All-time hype", "emoji": "🏆"},
@@ -44,13 +44,12 @@ AUDIBLES = {
     "ReallyLonelyBeingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "description": "A tragic roast", "emoji": "😢"},
     "Sandwich": {"url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "description": "Time for lunch", "emoji": "🥪"},
     "Score": {"url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "description": "Winning!", "emoji": "🏅"},
-    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?", "emoji": "🤨"},
+    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?", "emoji": "🤔"},
     "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "description": "Shake it off", "emoji": "🕺"},
     "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🥱"},
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🤭"},
 }
 
-# --- Dropdown Menu ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [discord.SelectOption(label=name, description=data["description"], emoji=data.get("emoji")) for name, data in AUDIBLES.items()]
@@ -63,7 +62,6 @@ class Dropdown(discord.ui.Select):
 
         await interaction.response.defer()
 
-        # --- Fetch MP4 ---
         async with aiohttp.ClientSession() as session:
             async with session.get(mp4_url) as resp:
                 if resp.status != 200:
@@ -71,10 +69,8 @@ class Dropdown(discord.ui.Select):
                     return
                 data = io.BytesIO(await resp.read())
 
-        # --- Parallel task: Send MP4 to chat immediately ---
         asyncio.create_task(interaction.followup.send(file=discord.File(data, filename=f"{choice}.mp4")))
 
-        # --- If user in VC, join and play ---
         if interaction.user.voice and interaction.user.voice.channel:
             vc = await interaction.user.voice.channel.connect()
 
@@ -85,19 +81,21 @@ class Dropdown(discord.ui.Select):
                 "-ac", "2",
                 "pipe:1"
             ]
-            process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-            ffmpeg_input, ffmpeg_output = process.stdin, process.stdout
+            try:
+                process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                ffmpeg_input, ffmpeg_output = process.stdin, process.stdout
 
-            ffmpeg_input.write(data.getbuffer())
-            ffmpeg_input.close()
+                ffmpeg_input.write(data.getbuffer())
+                ffmpeg_input.close()
 
-            audio = discord.PCMAudio(ffmpeg_output)
-            vc.play(audio)
+                audio = discord.PCMAudio(ffmpeg_output)
+                vc.play(audio)
 
-            # Disconnect after playing
-            while vc.is_playing():
-                await asyncio.sleep(1)
-            await vc.disconnect()
+                while vc.is_playing():
+                    await asyncio.sleep(1)
+                await vc.disconnect()
+            except Exception as e:
+                await interaction.followup.send(f"Audio playback failed: `{str(e)}`")
 
 class DropdownView(discord.ui.View):
     def __init__(self):
@@ -118,8 +116,8 @@ async def on_ready():
 async def audible(interaction: discord.Interaction):
     await interaction.response.send_message("Choose your audible below:", view=DropdownView(), ephemeral=False)
 
-@bot.tree.command(name="ffmpegtest", description="Check if ffmpeg is working")
-async def ffmpegtest(interaction: discord.Interaction):
+@bot.tree.command(name="ffmpegcheck", description="Check if ffmpeg is working")
+async def ffmpegcheck(interaction: discord.Interaction):
     try:
         result = subprocess.run(["./ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=5)
         output = result.stdout or result.stderr
@@ -127,7 +125,6 @@ async def ffmpegtest(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message(f"FFmpeg test failed: `{str(e)}`", ephemeral=True)
 
-# --- Launch everything ---
 async def main():
     asyncio.create_task(run_keep_alive())
     await bot.start(os.environ["DISCORD_TOKEN"])
