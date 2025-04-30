@@ -29,8 +29,8 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 # --- 20 Audibles ---
 AUDIBLES = {
     "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "description": "Classic jump scare", "emoji": "🎃"},
-    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "description": "Over it already", "emoji": "🏎"},
-    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "description": "Careful... it's wet!", "emoji": "🭹"},
+    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "description": "Over it already", "emoji": "🏁"},
+    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "description": "Careful... it's wet!", "emoji": "🧹"},
     "FatGuysNoMoney": {"url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "description": "Hard relatable moment", "emoji": "💸"},
     "FromADrunkenMonkey": {"url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "description": "Monkey mayhem", "emoji": "🐒"},
     "GreatestEVER": {"url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "description": "All-time hype", "emoji": "🏆"},
@@ -44,10 +44,10 @@ AUDIBLES = {
     "ReallyLonelyBeingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "description": "A tragic roast", "emoji": "😢"},
     "Sandwich": {"url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "description": "Time for lunch", "emoji": "🥪"},
     "Score": {"url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "description": "Winning!", "emoji": "🏅"},
-    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?", "emoji": "🤔"},
+    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?", "emoji": "🤨"},
     "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "description": "Shake it off", "emoji": "🕺"},
     "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🤭"},
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored", "emoji": "🥱"},
 }
 
 class Dropdown(discord.ui.Select):
@@ -56,46 +56,41 @@ class Dropdown(discord.ui.Select):
         super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        choice = self.values[0]
-        audible = AUDIBLES[choice]
-        mp4_url = audible["url"]
+        try:
+            await interaction.response.defer()
+            choice = self.values[0]
+            audible = AUDIBLES[choice]
+            mp4_url = audible["url"]
 
-        await interaction.response.defer()
+            async with aiohttp.ClientSession() as session:
+                async with session.get(mp4_url, timeout=10) as resp:
+                    if resp.status != 200:
+                        await interaction.followup.send(f"Error fetching MP4 for {choice}.")
+                        return
+                    data = io.BytesIO(await resp.read())
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(mp4_url) as resp:
-                if resp.status != 200:
-                    await interaction.followup.send(f"Error fetching MP4 for {choice}.")
-                    return
-                data = io.BytesIO(await resp.read())
+            asyncio.create_task(interaction.followup.send(file=discord.File(data, filename=f"{choice}.mp4")))
 
-        asyncio.create_task(interaction.followup.send(file=discord.File(data, filename=f"{choice}.mp4")))
+            if interaction.user.voice and interaction.user.voice.channel:
+                try:
+                    vc = await interaction.user.voice.channel.connect()
+                    ffmpeg_cmd = [
+                        "./ffmpeg", "-i", "pipe:0",
+                        "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"
+                    ]
+                    process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                    process.stdin.write(data.getbuffer())
+                    process.stdin.close()
+                    audio = discord.PCMAudio(process.stdout)
+                    vc.play(audio)
 
-        if interaction.user.voice and interaction.user.voice.channel:
-            vc = await interaction.user.voice.channel.connect()
-
-            ffmpeg_cmd = [
-                "./ffmpeg", "-i", "pipe:0",
-                "-f", "s16le",
-                "-ar", "48000",
-                "-ac", "2",
-                "pipe:1"
-            ]
-            try:
-                process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-                ffmpeg_input, ffmpeg_output = process.stdin, process.stdout
-
-                ffmpeg_input.write(data.getbuffer())
-                ffmpeg_input.close()
-
-                audio = discord.PCMAudio(ffmpeg_output)
-                vc.play(audio)
-
-                while vc.is_playing():
-                    await asyncio.sleep(1)
-                await vc.disconnect()
-            except Exception as e:
-                await interaction.followup.send(f"Audio playback failed: `{str(e)}`")
+                    while vc.is_playing():
+                        await asyncio.sleep(1)
+                    await vc.disconnect()
+                except Exception as e:
+                    await interaction.followup.send(f"Voice playback error: {e}")
+        except Exception as e:
+            await interaction.followup.send(f"Unexpected error: {e}")
 
 class DropdownView(discord.ui.View):
     def __init__(self):
@@ -106,8 +101,8 @@ class DropdownView(discord.ui.View):
 async def on_ready():
     print(f"Bot is ready. Logged in as {bot.user}")
     try:
-        synced = await bot.tree.sync()
-        print(f"Synced {len(synced)} slash commands.")
+        await bot.tree.sync()
+        print("Slash commands synced.")
     except Exception as e:
         print(f"Error syncing commands: {e}")
     bot.add_view(DropdownView())
@@ -125,6 +120,7 @@ async def ffmpegcheck(interaction: discord.Interaction):
     except Exception as e:
         await interaction.response.send_message(f"FFmpeg test failed: `{str(e)}`", ephemeral=True)
 
+# --- Launch everything ---
 async def main():
     asyncio.create_task(run_keep_alive())
     await bot.start(os.environ["DISCORD_TOKEN"])
