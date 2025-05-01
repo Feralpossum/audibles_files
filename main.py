@@ -7,6 +7,7 @@ import io
 import os
 import subprocess
 import shutil
+import traceback
 from aiohttp import web
 
 # --- Keep-alive webserver for Railway ---
@@ -117,7 +118,11 @@ class Dropdown(discord.ui.Select):
                 await vc.disconnect()
 
         except Exception as e:
-            await interaction.followup.send(f"❌ Error: {e}")
+            error_details = traceback.format_exc()
+            print(error_details)
+            await interaction.followup.send(f"❌ Voice playback error:\n```
+{e}
+```")
 
 class DropdownView(discord.ui.View):
     def __init__(self):
@@ -136,12 +141,29 @@ async def on_ready():
 
 @bot.tree.command(name="audible", description="Send and play an audible")
 async def audible(interaction: discord.Interaction):
+    try:
+        await interaction.response.defer()
+        await interaction.followup.send("Choose your audible:", view=DropdownView())
+    except Exception as e:
+        print(f"❌ Error in /audible command: {e}")
+        await interaction.followup.send(f"❌ Error: {e}")
+
+@bot.tree.command(name="ffmpeg_diagnose", description="Test if ffmpeg is working")
+async def ffmpeg_diagnose(interaction: discord.Interaction):
     await interaction.response.defer()
-    await interaction.followup.send("Choose your audible:", view=DropdownView())
+    try:
+        ffmpeg = get_ffmpeg_executable()
+        output = subprocess.check_output([ffmpeg, "-version"], stderr=subprocess.STDOUT, text=True)
+        await interaction.followup.send(f"```\n{output[:1900]}\n```")
+    except Exception as e:
+        await interaction.followup.send(f"❌ ffmpeg test failed: {e}")
 
 # --- Run Bot ---
 async def main():
-    asyncio.create_task(run_keep_alive())
-    await bot.start(os.environ["DISCORD_TOKEN"])
+    try:
+        asyncio.create_task(run_keep_alive())
+        await bot.start(os.environ["DISCORD_TOKEN"])
+    except Exception as e:
+        print("❌ Top-level error:", e)
 
 asyncio.run(main())
