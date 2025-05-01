@@ -5,8 +5,9 @@ from discord.ui import Select, View
 import asyncio
 import aiohttp
 import subprocess
+import os
 
-TOKEN = "YOUR_DISCORD_BOT_TOKEN_HERE"
+TOKEN = "MTM2NTU1MjgzNjIwMDM3MDIxNw.GZkVgN.YkuESSC4f6OOmuV7fL6pvzWmdRI5Qa5ZhZuOWY"
 GUILD_ID = 1365552836200370217  # Replace with your server ID
 
 AUDIBLES = {
@@ -73,7 +74,7 @@ class AudibleSelect(Select):
                     mp3_data = await resp.read()
 
             ffmpeg_exe = get_ffmpeg_executable()
-            process = subprocess.Popen([
+            process = subprocess.Popen([ 
                 ffmpeg_exe, "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"
             ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
