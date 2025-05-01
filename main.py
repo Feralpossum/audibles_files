@@ -6,6 +6,7 @@ import asyncio
 import io
 import os
 import subprocess
+import shutil
 from aiohttp import web
 
 # --- Keep-alive webserver for Railway ---
@@ -28,13 +29,12 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- Vercel Static Base URL ---
 BASE_URL = "https://audiblesfiles-qsvgvhyeq-karls-projects-20dd944d.vercel.app/Audibles"
-HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 # --- 20 Audibles ---
 AUDIBLES = {
     "Boo": {"description": "Classic jump scare", "emoji": "🎃"},
-    "DoneLosing": {"description": "Over it already", "emoji": "🏁"},
-    "DontSlipMoppingFloor": {"description": "Careful... it's wet!", "emoji": "🧹"},
+    "DoneLosing": {"description": "Over it already", "emoji": "🏑"},
+    "DontSlipMoppingFloor": {"description": "Careful... it's wet!", "emoji": "🭹"},
     "FatGuysNoMoney": {"description": "Hard relatable moment", "emoji": "💸"},
     "FromADrunkenMonkey": {"description": "Monkey mayhem", "emoji": "🐒"},
     "GreatestEVER": {"description": "All-time hype", "emoji": "🏆"},
@@ -51,10 +51,19 @@ AUDIBLES = {
     "SeriouslyEvenTrying": {"description": "Are you even trying?", "emoji": "🤨"},
     "ShakeLikeItDidntHurt": {"description": "Shake it off", "emoji": "🕺"},
     "WelcomeExpectingYou": {"description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"description": "So bored", "emoji": "🥱"},
+    "Yawn": {"description": "So bored", "emoji": "🤫"},
 }
 
-# --- Dropdown Menu ---
+# --- Determine ffmpeg executable path ---
+def get_ffmpeg_executable():
+    if os.path.isfile("./ffmpeg") and os.access("./ffmpeg", os.X_OK):
+        return "./ffmpeg"
+    system_ffmpeg = shutil.which("ffmpeg")
+    if system_ffmpeg:
+        return system_ffmpeg
+    raise FileNotFoundError("ffmpeg not found")
+
+# --- Dropdown ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [
@@ -70,34 +79,30 @@ class Dropdown(discord.ui.Select):
 
         await interaction.response.defer()
 
-        # --- Send MP4 (Visual) ---
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(mp4_url, headers=HEADERS) as resp:
+                async with session.get(mp4_url) as resp:
                     if resp.status == 200:
                         mp4_data = io.BytesIO(await resp.read())
                         await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
                     else:
                         await interaction.followup.send(f"⚠️ Couldn't fetch MP4 for `{choice}` (HTTP {resp.status})")
-        except Exception as e:
-            await interaction.followup.send(f"❌ MP4 error: {e}")
 
-        # --- Join VC and Play MP3 ---
-        if interaction.user.voice and interaction.user.voice.channel:
-            try:
+            if interaction.user.voice and interaction.user.voice.channel:
                 vc = interaction.guild.voice_client
                 if not vc:
                     vc = await interaction.user.voice.channel.connect()
 
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(mp3_url, headers=HEADERS) as resp:
+                    async with session.get(mp3_url) as resp:
                         if resp.status != 200:
                             await interaction.followup.send(f"⚠️ Couldn't fetch MP3 (HTTP {resp.status})")
                             return
                         mp3_data = await resp.read()
 
+                ffmpeg_exe = get_ffmpeg_executable()
                 process = subprocess.Popen(
-                    ["./ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
+                    [ffmpeg_exe, "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE
                 )
@@ -110,8 +115,9 @@ class Dropdown(discord.ui.Select):
                 while vc.is_playing():
                     await asyncio.sleep(1)
                 await vc.disconnect()
-            except Exception as e:
-                await interaction.followup.send(f"❌ Voice playback error: {e}")
+
+        except Exception as e:
+            await interaction.followup.send(f"❌ Error: {e}")
 
 class DropdownView(discord.ui.View):
     def __init__(self):
