@@ -1,133 +1,99 @@
 import discord
 from discord.ext import commands
-import aiohttp
-import asyncio
-import io
-import os
+from discord import app_commands
 import subprocess
+import os
+import aiohttp
+from io import BytesIO
+
+TOKEN = os.getenv("DISCORD_TOKEN")
+GUILD_ID = os.getenv("DISCORD_GUILD_ID")
+
+AUDIBLES = {
+    "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "description": "Classic jump scare"},
+    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "description": "Over it already"},
+    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "description": "Careful... it's wet!"},
+    "FatGuysNoMoney": {"url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "description": "Hard relatable moment"},
+    "FromADrunkenMonkey": {"url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "description": "Monkey mayhem"},
+    "GreatestEVER": {"url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "description": "All-time hype"},
+    "INeverWinYouSuck": {"url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp4", "description": "Ultimate sore loser"},
+    "KeepPunching": {"url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp4", "description": "Fight back!"},
+    "LovesomeLovesomeNot": {"url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp4", "description": "Love's a battlefield"},
+    "Mmm_roar": {"url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp4", "description": "Rawr means love"},
+    "Mwahahaha": {"url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp4", "description": "Evil laugh"},
+    "NotEvenSameZipCodeFunny": {"url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp4", "description": "You're not even close!"},
+    "Pleasestandstill": {"url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp4", "description": "Deer in headlights"},
+    "ReallyLonelyBeingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "description": "A tragic roast"},
+    "Sandwich": {"url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "description": "Time for lunch"},
+    "Score": {"url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "description": "Winning!"},
+    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?"},
+    "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "description": "Shake it off"},
+    "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "description": "Grand entrance"},
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored"}
+}
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.voice_states = True
-bot = commands.Bot(command_prefix="/", intents=intents)
+client = commands.Bot(command_prefix="!", intents=intents)
+tree = client.tree
 
-AUDIBLES = {
-    "Boo": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3", "description": "Classic jump scare"},
-    "DoneLosing": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3", "description": "Over it already"},
-    "DontSlipMoppingFloor": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp3", "description": "Careful... it's wet!"},
-    "FatGuysNoMoney": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp3", "description": "Hard relatable moment"},
-    "FromADrunkenMonkey": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp3", "description": "Monkey mayhem"},
-    "GreatestEVER": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp3", "description": "All-time hype"},
-    "INeverWinYouSuck": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp3", "description": "Ultimate sore loser"},
-    "KeepPunching": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp3", "description": "Fight back!"},
-    "LovesomeLovesomeNot": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp3", "description": "Love's a battlefield"},
-    "Mmm_roar": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp3", "description": "Rawr means love"},
-    "Mwahahaha": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp3", "description": "Evil laugh"},
-    "NotEvenSameZipCodeFunny": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp3", "description": "You're not even close!"},
-    "Pleasestandstill": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp3", "description": "Deer in headlights"},
-    "ReallyLonelyBeingYou": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp3", "description": "A tragic roast"},
-    "Sandwich": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp3", "description": "Time for lunch"},
-    "Score": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Score.mp3", "description": "Winning!"},
-    "SeriouslyEvenTrying": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp3", "description": "Are you even trying?"},
-    "ShakeLikeItDidntHurt": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp3", "description": "Shake it off"},
-    "WelcomeExpectingYou": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp3", "description": "Grand entrance"},
-    "Yawn": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp3", "description": "So bored"},
-}
+@client.event
+async def on_ready():
+    print(f"✅ Bot is ready: {client.user}")
+    if GUILD_ID:
+        synced = await tree.sync(guild=discord.Object(id=int(GUILD_ID)))
+        print(f"✅ Synced {len(synced)} slash commands.")
 
-class Dropdown(discord.ui.Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(label=name, description=data["description"])
-            for name, data in AUDIBLES.items()
-        ]
-        super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options)
-
-    async def callback(self, interaction: discord.Interaction):
-        choice = self.values[0]
-        mp4_url = AUDIBLES[choice]["mp4_url"]
-        mp3_url = AUDIBLES[choice]["mp3_url"]
-
-        await interaction.response.defer()
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(mp4_url) as resp:
-                    if resp.status == 200:
-                        mp4_data = io.BytesIO(await resp.read())
-                        await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
-                    else:
-                        await interaction.followup.send(f"⚠️ Couldn't fetch MP4 for `{choice}` (HTTP {resp.status})")
-        except Exception as e:
-            await interaction.followup.send(f"❌ MP4 error: {e}")
-
-        if interaction.user.voice and interaction.user.voice.channel:
-            try:
-                vc = interaction.guild.voice_client
-                if not vc or not vc.is_connected():
-                    vc = await interaction.user.voice.channel.connect()
-
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(mp3_url) as resp:
-                        if resp.status != 200:
-                            await interaction.followup.send(f"⚠️ Couldn't fetch MP3 (HTTP {resp.status})")
-                            return
-                        mp3_data = await resp.read()
-
-                ffmpeg = subprocess.Popen(
-                    ["./ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.PIPE
-                )
-
-                ffmpeg.stdin.write(mp3_data)
-                ffmpeg.stdin.close()
-
-                audio_source = discord.FFmpegPCMAudio(source=ffmpeg.stdout)
-                vc.play(audio_source)
-
-                while vc.is_playing():
-                    await asyncio.sleep(1)
-
-                await vc.disconnect()
-
-            except Exception as e:
-                await interaction.followup.send(f"❌ Voice playback error:\n```{e}```")
-
-class DropdownView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        self.add_item(Dropdown())
-
-@bot.tree.command(name="audible", description="Send and play an audible")
-async def audible(interaction: discord.Interaction):
-    await interaction.response.send_message("Choose your audible:", view=DropdownView())
-
-@bot.tree.command(name="ffmpeg_diagnose", description="Test if ffmpeg is working")
+@tree.command(name="ffmpeg_diagnose", description="Check if ffmpeg is executable.", guild=discord.Object(id=int(GUILD_ID)))
 async def ffmpeg_diagnose(interaction: discord.Interaction):
     try:
-        exists = os.path.isfile("./ffmpeg")
-        executable = os.access("./ffmpeg", os.X_OK)
-        output = subprocess.check_output(["./ffmpeg", "-version"]).decode("utf-8").splitlines()[0] if exists and executable else "N/A"
-
-        await interaction.response.send_message(
-            f"✔️ ./ffmpeg exists: `{exists}`\n"
-            f"✔️ Executable: `{executable}`\n"
-            f"🔍 Version: `{output}`"
-        )
+        result = subprocess.run(["./ffmpeg", "-version"], capture_output=True, text=True, check=True)
+        await interaction.response.send_message(f"`./ffmpeg` exists: True\nExecutable: True\nVersion: ```\n{result.stdout[:300]}...\n```")
     except Exception as e:
-        await interaction.response.send_message(f"❌ ffmpeg diagnose error:\n```{e}```")
+        await interaction.response.send_message(f"❌ ffmpeg check failed: ```\n{str(e)}\n```")
 
-@bot.event
-async def on_ready():
-    print(f"✅ Bot is ready: {bot.user}")
+@tree.command(name="audible", description="Choose an audible to play", guild=discord.Object(id=int(GUILD_ID)))
+@app_commands.describe(name="Name of the audible")
+async def audible(interaction: discord.Interaction, name: str):
+    await interaction.response.defer()
+    audible = AUDIBLES.get(name)
+    if not audible:
+        await interaction.followup.send("❌ Audible not found.")
+        return
+
+    mp4_url = audible['url']
+    mp3_url = mp4_url.replace(".mp4", ".mp3")
+    
+    await interaction.followup.send(f"**{name}**", file=discord.File(BytesIO(await fetch(mp4_url)), filename=f"{name}.mp4"))
+
     try:
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} slash commands.")
+        if interaction.user.voice and interaction.user.voice.channel:
+            vc = await interaction.user.voice.channel.connect()
+            async with aiohttp.ClientSession() as session:
+                async with session.get(mp3_url) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"Failed to fetch MP3: HTTP {resp.status}")
+                    mp3_data = await resp.read()
+
+            process = subprocess.Popen([
+                "./ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"
+            ], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+
+            audio_source = discord.PCMAudio(process.stdout)
+            vc.play(audio_source)
+            process.stdin.write(mp3_data)
+            process.stdin.close()
+            while vc.is_playing():
+                await discord.utils.sleep_until(discord.utils.utcnow() + discord.utils.timedelta(seconds=0.5))
+            await vc.disconnect()
+        else:
+            await interaction.followup.send("⚠️ You're not in a voice channel!")
     except Exception as e:
-        print(f"❌ Sync error: {e}")
-    bot.add_view(DropdownView())
+        await interaction.followup.send(f"❌ Voice playback error:\n```\n{str(e)}\n```")
 
-async def main():
-    await bot.start(os.environ["DISCORD_TOKEN"])
+async def fetch(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            return await resp.read()
 
-asyncio.run(main())
+client.run(TOKEN)
