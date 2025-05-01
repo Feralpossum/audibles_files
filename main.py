@@ -30,6 +30,7 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 
 # --- Vercel Static Base URL ---
 BASE_URL = "https://audiblesfiles-qsvgvhyeq-karls-projects-20dd944d.vercel.app/Audibles"
+USER_AGENT_HEADER = {"User-Agent": "Mozilla/5.0"}
 
 # --- 20 Audibles ---
 AUDIBLES = {
@@ -82,12 +83,18 @@ class Dropdown(discord.ui.Select):
 
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(mp4_url) as resp:
+                # Try MP4 fetch with header, then fallback
+                async with session.get(mp4_url, headers=USER_AGENT_HEADER) as resp:
                     if resp.status == 200:
                         mp4_data = io.BytesIO(await resp.read())
                         await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
                     else:
-                        await interaction.followup.send(f"⚠️ Couldn't fetch MP4 for `{choice}` (HTTP {resp.status})")
+                        async with session.get(mp4_url) as retry_resp:
+                            if retry_resp.status == 200:
+                                mp4_data = io.BytesIO(await retry_resp.read())
+                                await interaction.followup.send(file=discord.File(mp4_data, filename=f"{choice}.mp4"))
+                            else:
+                                await interaction.followup.send(f"⚠️ Couldn't fetch MP4 for `{choice}` (HTTP {retry_resp.status})")
 
             if interaction.user.voice and interaction.user.voice.channel:
                 vc = interaction.guild.voice_client
@@ -95,11 +102,17 @@ class Dropdown(discord.ui.Select):
                     vc = await interaction.user.voice.channel.connect()
 
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(mp3_url) as resp:
-                        if resp.status != 200:
-                            await interaction.followup.send(f"⚠️ Couldn't fetch MP3 (HTTP {resp.status})")
-                            return
-                        mp3_data = await resp.read()
+                    # Try MP3 fetch with header, then fallback
+                    async with session.get(mp3_url, headers=USER_AGENT_HEADER) as resp:
+                        if resp.status == 200:
+                            mp3_data = await resp.read()
+                        else:
+                            async with session.get(mp3_url) as retry_resp:
+                                if retry_resp.status == 200:
+                                    mp3_data = await retry_resp.read()
+                                else:
+                                    await interaction.followup.send(f"⚠️ Couldn't fetch MP3 (HTTP {retry_resp.status})")
+                                    return
 
                 ffmpeg_exe = get_ffmpeg_executable()
                 process = subprocess.Popen(
