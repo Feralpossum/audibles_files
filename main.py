@@ -120,9 +120,7 @@ class Dropdown(discord.ui.Select):
         except Exception as e:
             error_details = traceback.format_exc()
             print(error_details)
-            await interaction.followup.send(f"❌ Voice playback error:\n```
-{e}
-```")
+            await interaction.followup.send(f"❌ Voice playback error: ```{e}```")
 
 class DropdownView(discord.ui.View):
     def __init__(self):
