@@ -90,8 +90,12 @@ class Dropdown(discord.ui.Select):
                     asyncio.run_coroutine_threadsafe(coro, bot.loop)
 
                 audio = discord.PCMAudio(process.stdout)
-                vc.play(audio, after=after_playing)
-                print("🎶 Audio playback started")
+                try:
+                    vc.play(audio, after=after_playing)
+                    print("🎶 Audio playback started")
+                except Exception as e:
+                    print(f"🚫 vc.play() failed: {e}")
+                    await interaction.followup.send(f"🚫 Failed to play audio: {e}")
 
             except Exception as e:
                 await interaction.followup.send(f"❌ Voice playback error:\n```{e}```")
