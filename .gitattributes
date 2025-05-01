@@ -1,0 +1,13 @@
+# Normalize text files to LF
+* text=auto
+
+# Treat common binary formats as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.mp4 binary
+*.mp3 binary
+*.exe binary
+*.zip binary
+*.tar binary
