@@ -136,7 +136,8 @@ async def on_ready():
 
 @bot.tree.command(name="audible", description="Send and play an audible")
 async def audible(interaction: discord.Interaction):
-    await interaction.response.send_message("Choose your audible:", view=DropdownView())
+    await interaction.response.defer()
+    await interaction.followup.send("Choose your audible:", view=DropdownView())
 
 # --- Run Bot ---
 async def main():
