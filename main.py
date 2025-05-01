@@ -160,9 +160,25 @@ async def audible(interaction: discord.Interaction):
 async def ffmpeg_diagnose(interaction: discord.Interaction):
     await interaction.response.defer()
     try:
-        ffmpeg = get_ffmpeg_executable()
-        output = subprocess.check_output([ffmpeg, "-version"], stderr=subprocess.STDOUT, text=True)
-        await interaction.followup.send(f"```\n{output[:1900]}\n```")
+        messages = []
+        if os.path.isfile("./ffmpeg"):
+            messages.append("✔️ ./ffmpeg exists")
+        else:
+            messages.append("❌ ./ffmpeg does NOT exist")
+
+        if os.access("./ffmpeg", os.X_OK):
+            messages.append("✔️ ./ffmpeg is executable")
+        else:
+            messages.append("❌ ./ffmpeg is NOT executable")
+
+        system_ffmpeg = shutil.which("ffmpeg")
+        if system_ffmpeg:
+            messages.append(f"✔️ System ffmpeg found at: {system_ffmpeg}")
+        else:
+            messages.append("❌ No system ffmpeg found")
+
+        await interaction.followup.send("\n".join(messages))
+
     except Exception as e:
         await interaction.followup.send(f"❌ ffmpeg test failed: {e}")
 
