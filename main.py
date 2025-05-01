@@ -28,32 +28,31 @@ intents.message_content = True
 intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# --- Vercel Static Base URL ---
-BASE_URL = "https://audiblesfiles-qsvgvhyeq-karls-projects-20dd944d.vercel.app/Audibles"
+# --- User-Agent Header ---
 USER_AGENT_HEADER = {"User-Agent": "Mozilla/5.0"}
 
-# --- 20 Audibles ---
+# --- Audibles ---
 AUDIBLES = {
-    "Boo": {"description": "Classic jump scare"},
-    "DoneLosing": {"description": "Over it already"},
-    "DontSlipMoppingFloor": {"description": "Careful... it's wet!"},
-    "FatGuysNoMoney": {"description": "Hard relatable moment"},
-    "FromADrunkenMonkey": {"description": "Monkey mayhem"},
-    "GreatestEVER": {"description": "All-time hype"},
-    "INeverWinYouSuck": {"description": "Ultimate sore loser"},
-    "KeepPunching": {"description": "Fight back!"},
-    "LovesomeLovesomeNot": {"description": "Love's a battlefield"},
-    "Mmm_roar": {"description": "Rawr means love"},
-    "Mwahahaha": {"description": "Evil laugh"},
-    "NotEvenSameZipCodeFunny": {"description": "You're not even close!"},
-    "Pleasestandstill": {"description": "Deer in headlights"},
-    "ReallyLonelyBeingYou": {"description": "A tragic roast"},
-    "Sandwich": {"description": "Time for lunch"},
-    "Score": {"description": "Winning!"},
-    "SeriouslyEvenTrying": {"description": "Are you even trying?"},
-    "ShakeLikeItDidntHurt": {"description": "Shake it off"},
-    "WelcomeExpectingYou": {"description": "Grand entrance"},
-    "Yawn": {"description": "So bored"},
+    "Boo": {"url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "description": "Classic jump scare"},
+    "DoneLosing": {"url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "description": "Over it already"},
+    "DontSlipMoppingFloor": {"url": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp4", "description": "Careful... it's wet!"},
+    "FatGuysNoMoney": {"url": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp4", "description": "Hard relatable moment"},
+    "FromADrunkenMonkey": {"url": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp4", "description": "Monkey mayhem"},
+    "GreatestEVER": {"url": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp4", "description": "All-time hype"},
+    "INeverWinYouSuck": {"url": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp4", "description": "Ultimate sore loser"},
+    "KeepPunching": {"url": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp4", "description": "Fight back!"},
+    "LovesomeLovesomeNot": {"url": "https://audiblesfiles.vercel.app/Audibles/LovesomeLovesomeNot.mp4", "description": "Love's a battlefield"},
+    "Mmm_roar": {"url": "https://audiblesfiles.vercel.app/Audibles/Mmm_roar.mp4", "description": "Rawr means love"},
+    "Mwahahaha": {"url": "https://audiblesfiles.vercel.app/Audibles/Mwahahaha.mp4", "description": "Evil laugh"},
+    "NotEvenSameZipCodeFunny": {"url": "https://audiblesfiles.vercel.app/Audibles/NotEvenSameZipCodeFunny.mp4", "description": "You're not even close!"},
+    "Pleasestandstill": {"url": "https://audiblesfiles.vercel.app/Audibles/Pleasestandstill.mp4", "description": "Deer in headlights"},
+    "ReallyLonelyBeingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/ReallyLonelyBeingYou.mp4", "description": "A tragic roast"},
+    "Sandwich": {"url": "https://audiblesfiles.vercel.app/Audibles/Sandwich.mp4", "description": "Time for lunch"},
+    "Score": {"url": "https://audiblesfiles.vercel.app/Audibles/Score.mp4", "description": "Winning!"},
+    "SeriouslyEvenTrying": {"url": "https://audiblesfiles.vercel.app/Audibles/SeriouslyEvenTrying.mp4", "description": "Are you even trying?"},
+    "ShakeLikeItDidntHurt": {"url": "https://audiblesfiles.vercel.app/Audibles/ShakeLikeItDidntHurt.mp4", "description": "Shake it off"},
+    "WelcomeExpectingYou": {"url": "https://audiblesfiles.vercel.app/Audibles/WelcomeExpectingYou.mp4", "description": "Grand entrance"},
+    "Yawn": {"url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "description": "So bored"}
 }
 
 # --- Determine ffmpeg executable path ---
@@ -76,14 +75,13 @@ class Dropdown(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         choice = self.values[0]
-        mp4_url = f"{BASE_URL}/{choice}.mp4"
-        mp3_url = f"{BASE_URL}/{choice}.mp3"
+        mp4_url = AUDIBLES[choice]["url"]
+        mp3_url = mp4_url.replace(".mp4", ".mp3")
 
         await interaction.response.defer()
 
         try:
             async with aiohttp.ClientSession() as session:
-                # Try MP4 fetch with header, then fallback
                 async with session.get(mp4_url, headers=USER_AGENT_HEADER) as resp:
                     if resp.status == 200:
                         mp4_data = io.BytesIO(await resp.read())
@@ -102,7 +100,6 @@ class Dropdown(discord.ui.Select):
                     vc = await interaction.user.voice.channel.connect()
 
                 async with aiohttp.ClientSession() as session:
-                    # Try MP3 fetch with header, then fallback
                     async with session.get(mp3_url, headers=USER_AGENT_HEADER) as resp:
                         if resp.status == 200:
                             mp3_data = await resp.read()
