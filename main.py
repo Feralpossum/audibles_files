@@ -73,23 +73,22 @@ class Dropdown(discord.ui.Select):
                             return
                         mp3_data = await resp.read()
 
-                # Convert MP3 to PCM and buffer it into memory
                 ffmpeg = subprocess.Popen(
                     ["./ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE
                 )
-                pcm_audio, _ = ffmpeg.communicate(input=mp3_data)
 
-                # Stream audio from memory
-                audio = discord.PCMAudio(io.BytesIO(pcm_audio))
+                ffmpeg.stdin.write(mp3_data)
+                ffmpeg.stdin.close()
 
-                def after_playing(error):
-                    print(f"🎧 Playback finished or error: {error}")
-                    coro = vc.disconnect()
-                    asyncio.run_coroutine_threadsafe(coro, bot.loop)
+                audio_source = discord.FFmpegPCMAudio(source=ffmpeg.stdout)
+                vc.play(audio_source)
 
-                vc.play(audio, after=after_playing)
+                while vc.is_playing():
+                    await asyncio.sleep(1)
+
+                await vc.disconnect()
 
             except Exception as e:
                 await interaction.followup.send(f"❌ Voice playback error:\n```{e}```")
@@ -132,4 +131,3 @@ async def main():
     await bot.start(os.environ["DISCORD_TOKEN"])
 
 asyncio.run(main())
-
