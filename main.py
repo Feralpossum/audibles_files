@@ -33,26 +33,26 @@ BASE_URL = "https://audiblesfiles-qsvgvhyeq-karls-projects-20dd944d.vercel.app/A
 
 # --- 20 Audibles ---
 AUDIBLES = {
-    "Boo": {"description": "Classic jump scare", "emoji": "🎃"},
-    "DoneLosing": {"description": "Over it already", "emoji": "🏑"},
-    "DontSlipMoppingFloor": {"description": "Careful... it's wet!", "emoji": "🭹"},
-    "FatGuysNoMoney": {"description": "Hard relatable moment", "emoji": "💸"},
-    "FromADrunkenMonkey": {"description": "Monkey mayhem", "emoji": "🐒"},
-    "GreatestEVER": {"description": "All-time hype", "emoji": "🏆"},
-    "INeverWinYouSuck": {"description": "Ultimate sore loser", "emoji": "😡"},
-    "KeepPunching": {"description": "Fight back!", "emoji": "🥊"},
-    "LovesomeLovesomeNot": {"description": "Love's a battlefield", "emoji": "💔"},
-    "Mmm_roar": {"description": "Rawr means love", "emoji": "🦁"},
-    "Mwahahaha": {"description": "Evil laugh", "emoji": "😈"},
-    "NotEvenSameZipCodeFunny": {"description": "You're not even close!", "emoji": "🏡"},
-    "Pleasestandstill": {"description": "Deer in headlights", "emoji": "🦌"},
-    "ReallyLonelyBeingYou": {"description": "A tragic roast", "emoji": "😢"},
-    "Sandwich": {"description": "Time for lunch", "emoji": "🥪"},
-    "Score": {"description": "Winning!", "emoji": "🏅"},
-    "SeriouslyEvenTrying": {"description": "Are you even trying?", "emoji": "🤨"},
-    "ShakeLikeItDidntHurt": {"description": "Shake it off", "emoji": "🕺"},
-    "WelcomeExpectingYou": {"description": "Grand entrance", "emoji": "🎉"},
-    "Yawn": {"description": "So bored", "emoji": "🤫"},
+    "Boo": {"description": "Classic jump scare"},
+    "DoneLosing": {"description": "Over it already"},
+    "DontSlipMoppingFloor": {"description": "Careful... it's wet!"},
+    "FatGuysNoMoney": {"description": "Hard relatable moment"},
+    "FromADrunkenMonkey": {"description": "Monkey mayhem"},
+    "GreatestEVER": {"description": "All-time hype"},
+    "INeverWinYouSuck": {"description": "Ultimate sore loser"},
+    "KeepPunching": {"description": "Fight back!"},
+    "LovesomeLovesomeNot": {"description": "Love's a battlefield"},
+    "Mmm_roar": {"description": "Rawr means love"},
+    "Mwahahaha": {"description": "Evil laugh"},
+    "NotEvenSameZipCodeFunny": {"description": "You're not even close!"},
+    "Pleasestandstill": {"description": "Deer in headlights"},
+    "ReallyLonelyBeingYou": {"description": "A tragic roast"},
+    "Sandwich": {"description": "Time for lunch"},
+    "Score": {"description": "Winning!"},
+    "SeriouslyEvenTrying": {"description": "Are you even trying?"},
+    "ShakeLikeItDidntHurt": {"description": "Shake it off"},
+    "WelcomeExpectingYou": {"description": "Grand entrance"},
+    "Yawn": {"description": "So bored"},
 }
 
 # --- Determine ffmpeg executable path ---
@@ -68,7 +68,7 @@ def get_ffmpeg_executable():
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label=name, description=data["description"], emoji=data["emoji"])
+            discord.SelectOption(label=name, description=data["description"])
             for name, data in AUDIBLES.items()
         ]
         super().__init__(placeholder="Choose your audible!", min_values=1, max_values=1, options=options)
