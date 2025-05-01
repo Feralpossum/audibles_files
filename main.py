@@ -6,13 +6,11 @@ import io
 import os
 import subprocess
 
-# --- Discord Bot Setup ---
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# --- 20 Audibles with Explicit URLs ---
 AUDIBLES = {
     "Boo": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3", "description": "Classic jump scare"},
     "DoneLosing": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3", "description": "Over it already"},
@@ -36,7 +34,6 @@ AUDIBLES = {
     "Yawn": {"mp4_url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp4", "mp3_url": "https://audiblesfiles.vercel.app/Audibles/Yawn.mp3", "description": "So bored"},
 }
 
-# --- Dropdown UI ---
 class Dropdown(discord.ui.Select):
     def __init__(self):
         options = [
@@ -66,7 +63,10 @@ class Dropdown(discord.ui.Select):
         if interaction.user.voice and interaction.user.voice.channel:
             try:
                 vc = interaction.guild.voice_client
-                if not vc:
+                if vc and vc.is_connected():
+                    print(f"🔄 Reusing existing voice connection: {vc.channel}")
+                else:
+                    print(f"🔊 Connecting to voice channel: {interaction.user.voice.channel}")
                     vc = await interaction.user.voice.channel.connect()
 
                 async with aiohttp.ClientSession() as session:
@@ -84,12 +84,14 @@ class Dropdown(discord.ui.Select):
                 process.stdin.write(mp3_data)
                 process.stdin.close()
 
-                audio = discord.PCMAudio(process.stdout)
-                vc.play(audio)
+                def after_playing(err):
+                    print(f"🎧 Playback finished or error: {err}")
+                    coro = vc.disconnect()
+                    asyncio.run_coroutine_threadsafe(coro, bot.loop)
 
-                while vc.is_playing():
-                    await asyncio.sleep(1)
-                await vc.disconnect()
+                audio = discord.PCMAudio(process.stdout)
+                vc.play(audio, after=after_playing)
+                print("🎶 Audio playback started")
 
             except Exception as e:
                 await interaction.followup.send(f"❌ Voice playback error:\n```{e}```")
@@ -128,7 +130,6 @@ async def on_ready():
         print(f"❌ Sync error: {e}")
     bot.add_view(DropdownView())
 
-# --- Run Bot ---
 async def main():
     await bot.start(os.environ["DISCORD_TOKEN"])
 
