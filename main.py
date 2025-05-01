@@ -63,10 +63,7 @@ class Dropdown(discord.ui.Select):
         if interaction.user.voice and interaction.user.voice.channel:
             try:
                 vc = interaction.guild.voice_client
-                if vc and vc.is_connected():
-                    print(f"🔄 Reusing existing voice connection: {vc.channel}")
-                else:
-                    print(f"🔊 Connecting to voice channel: {interaction.user.voice.channel}")
+                if not vc or not vc.is_connected():
                     vc = await interaction.user.voice.channel.connect()
 
                 async with aiohttp.ClientSession() as session:
@@ -76,26 +73,23 @@ class Dropdown(discord.ui.Select):
                             return
                         mp3_data = await resp.read()
 
-                process = subprocess.Popen(
+                # Convert MP3 to PCM and buffer it into memory
+                ffmpeg = subprocess.Popen(
                     ["./ffmpeg", "-i", "pipe:0", "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
                     stdin=subprocess.PIPE,
                     stdout=subprocess.PIPE
                 )
-                process.stdin.write(mp3_data)
-                process.stdin.close()
+                pcm_audio, _ = ffmpeg.communicate(input=mp3_data)
 
-                def after_playing(err):
-                    print(f"🎧 Playback finished or error: {err}")
+                # Stream audio from memory
+                audio = discord.PCMAudio(io.BytesIO(pcm_audio))
+
+                def after_playing(error):
+                    print(f"🎧 Playback finished or error: {error}")
                     coro = vc.disconnect()
                     asyncio.run_coroutine_threadsafe(coro, bot.loop)
 
-                audio = discord.PCMAudio(process.stdout)
-                try:
-                    vc.play(audio, after=after_playing)
-                    print("🎶 Audio playback started")
-                except Exception as e:
-                    print(f"🚫 vc.play() failed: {e}")
-                    await interaction.followup.send(f"🚫 Failed to play audio: {e}")
+                vc.play(audio, after=after_playing)
 
             except Exception as e:
                 await interaction.followup.send(f"❌ Voice playback error:\n```{e}```")
@@ -138,3 +132,4 @@ async def main():
     await bot.start(os.environ["DISCORD_TOKEN"])
 
 asyncio.run(main())
+
