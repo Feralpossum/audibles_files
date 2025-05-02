@@ -63,8 +63,9 @@ class SoundSelect(discord.ui.Select):
         url = AUDIBLES[sound_name]["url"]
         filename = f"audio/{sound_name}.mp3"
         try:
+            await interaction.response.defer(ephemeral=True)
+
             if not os.path.exists(filename):
-                await interaction.followup.send(f"⬇️ Downloading `{sound_name}`...", ephemeral=True)
                 r = requests.get(url)
                 r.raise_for_status()
                 with open(filename, "wb") as f:
@@ -78,9 +79,9 @@ class SoundSelect(discord.ui.Select):
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
             )
 
-            await interaction.response.send_message(f"🔊 Playing: **{sound_name}**", ephemeral=True)
+            await interaction.followup.send(f"🔊 Playing: **{sound_name}**", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error playing sound: {e}", ephemeral=True)
+            await interaction.followup.send(f"❌ Error playing sound: {e}", ephemeral=True)
 
 class SoundView(discord.ui.View):
     def __init__(self, vc: discord.VoiceClient):
@@ -102,10 +103,20 @@ async def audibles(interaction: discord.Interaction):
         await interaction.response.send_message("❗ Join a voice channel first.", ephemeral=True)
         return
 
+    voice_channel = interaction.user.voice.channel
+
+    # Disconnect if already connected
+    if interaction.guild.voice_client:
+        try:
+            await interaction.guild.voice_client.disconnect(force=True)
+        except Exception:
+            pass
+
     try:
-        vc = await interaction.user.voice.channel.connect()
+        vc = await voice_channel.connect()
         await interaction.response.send_message("🎵 Choose a sound:", view=SoundView(vc), ephemeral=True)
     except Exception as e:
         await interaction.response.send_message(f"⚠️ Could not join channel: {e}", ephemeral=True)
 
 bot.run(TOKEN)
+
