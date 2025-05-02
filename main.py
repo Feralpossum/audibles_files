@@ -27,17 +27,16 @@ if not TOKEN or not guild_env:
     raise RuntimeError("❌ DISCORD_BOT_TOKEN or GUILD_ID is missing from environment variables.")
 GUILD_ID = int(guild_env)
 
-# Base URLs for local test and Boo fallback
-TEST_MP3_URLS = {
-    "TestBeep.mp3": "https://www.soundjay.com/button/beep-07.mp3",
-    "Boo.mp3": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3"
+# Test WAV file (should decode fine without mp3 decoder)
+TEST_FILES = {
+    "TestBeep.wav": "https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav"
 }
 
-mp3_files = list(TEST_MP3_URLS.keys())
+mp3_files = list(TEST_FILES.keys())
 
-# Create audio directory and download all MP3s locally
+# Create audio directory and download all test files locally
 Path("audio").mkdir(exist_ok=True)
-for name, url in TEST_MP3_URLS.items():
+for name, url in TEST_FILES.items():
     dest = Path("audio") / name
     if not dest.exists():
         try:
@@ -57,7 +56,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 class SoundSelect(discord.ui.Select):
     def __init__(self, vc):
-        options = [discord.SelectOption(label=f.replace(".mp3", ""), value=f) for f in mp3_files]
+        options = [discord.SelectOption(label=f.replace(".wav", ""), value=f) for f in mp3_files]
         super().__init__(placeholder="Choose a test sound...", options=options)
         self.vc = vc
 
@@ -69,7 +68,7 @@ class SoundSelect(discord.ui.Select):
                 discord.FFmpegPCMAudio(path),
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
             )
-            await interaction.response.send_message(f"▶️ Playing test file: `{self.values[0]}`", ephemeral=True)
+            await interaction.response.send_message(f"▶️ Playing test WAV: `{self.values[0]}`", ephemeral=True)
         except Exception as e:
             print(f"Playback error: {e}", file=sys.stderr)
             await interaction.response.send_message("❌ Failed to play audio. Check logs.", ephemeral=True)
@@ -85,7 +84,7 @@ async def on_ready():
 
 @bot.tree.command(
     name="audibles",
-    description="Play a test MP3 from local disk",
+    description="Play a test WAV file from local disk",
     guild=discord.Object(id=GUILD_ID)
 )
 async def audibles(interaction: discord.Interaction):
@@ -94,9 +93,13 @@ async def audibles(interaction: discord.Interaction):
         return
 
     voice_channel = interaction.user.voice.channel
-    vc = await voice_channel.connect()
+    try:
+        vc = await voice_channel.connect()
+    except discord.ClientException:
+        vc = interaction.guild.voice_client
+
     view = SoundView(vc)
-    await interaction.response.send_message("🔊 Choose a test file to play:", view=view, ephemeral=True)
+    await interaction.response.send_message("🔊 Choose a test WAV to play:", view=view, ephemeral=True)
 
 @bot.event
 async def setup_hook():
