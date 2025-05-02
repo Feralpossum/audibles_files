@@ -7,7 +7,6 @@ import requests
 from pathlib import Path
 import sys
 
-# Voice patching
 original_play = discord.VoiceClient.play
 def patched_play(self, source, *, after=None):
     self.source = source
@@ -21,17 +20,16 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID_RAW = os.getenv("GUILD_ID")
 
-print("🔍 Checking environment variables...")
-print(f"DISCORD_BOT_TOKEN is {'set' if TOKEN else 'NOT SET'}")
-print(f"GUILD_ID is: {GUILD_ID_RAW}")
+print("🔍 Checking environment variables...", flush=True)
+print(f"DISCORD_BOT_TOKEN is {'set' if TOKEN else 'NOT SET'}", flush=True)
+print(f"GUILD_ID is: {GUILD_ID_RAW}", flush=True)
 
 if not TOKEN or not GUILD_ID_RAW:
-    print("❌ ERROR: Missing DISCORD_BOT_TOKEN or GUILD_ID. Exiting.")
+    print("❌ ERROR: Missing DISCORD_BOT_TOKEN or GUILD_ID. Exiting.", flush=True)
     sys.exit(1)
 
 GUILD_ID = int(GUILD_ID_RAW)
 
-# Test audio file
 TEST_FILES = {
     "Piano.wav": "https://www.kozco.com/tech/piano2.wav"
 }
@@ -41,14 +39,14 @@ for name, url in TEST_FILES.items():
     dest = Path("audio") / name
     if not dest.exists():
         try:
-            print(f"⬇️ Downloading {name} from {url}")
+            print(f"⬇️ Downloading {name} from {url}", flush=True)
             r = requests.get(url)
             r.raise_for_status()
             with open(dest, "wb") as f:
                 f.write(r.content)
-            print(f"✅ Downloaded {name}")
+            print(f"✅ Downloaded {name}", flush=True)
         except Exception as e:
-            print(f"❌ Failed to download {name}: {e}", file=sys.stderr)
+            print(f"❌ Failed to download {name}: {e}", file=sys.stderr, flush=True)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -70,10 +68,10 @@ class SoundSelect(discord.ui.Select):
                 discord.FFmpegPCMAudio(file_path),
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
             )
-            print(f"▶️ Playing: {file_path}")
+            print(f"▶️ Playing: {file_path}", flush=True)
             await interaction.response.send_message(f"▶️ Playing: {self.values[0]}", ephemeral=True)
         except Exception as e:
-            print(f"Playback error: {e}", file=sys.stderr)
+            print(f"Playback error: {e}", file=sys.stderr, flush=True)
             await interaction.response.send_message("❌ Error playing sound.", ephemeral=True)
 
 class SoundView(discord.ui.View):
@@ -83,7 +81,7 @@ class SoundView(discord.ui.View):
 
 @bot.event
 async def on_ready():
-    print(f"✅ Logged in as {bot.user}")
+    print(f"✅ Logged in as {bot.user}", flush=True)
 
 @bot.tree.command(
     name="audibles",
@@ -103,11 +101,11 @@ async def audibles(interaction: discord.Interaction):
 
 @bot.event
 async def setup_hook():
-    print("🔁 Running setup_hook()...")
+    print("🔁 Running setup_hook()...", flush=True)
     try:
         await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-        print("✅ Slash command '/audibles' registered to guild")
+        print("✅ Slash command '/audibles' registered to guild", flush=True)
     except Exception as e:
-        print(f"❌ Failed to sync commands: {e}", file=sys.stderr)
+        print(f"❌ Failed to sync commands: {e}", file=sys.stderr, flush=True)
 
 bot.run(TOKEN)
