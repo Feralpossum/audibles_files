@@ -80,9 +80,10 @@ async def audibles(interaction: discord.Interaction):
 @bot.event
 async def setup_hook():
     guild = discord.Object(id=GUILD_ID)
-    bot.tree.clear_commands(guild=guild)  # FIXED: no await
-    bot.tree.copy_global_to(guild=guild)  # FIXED: no await
-    await bot.tree.sync(guild=guild)
-    print("✅ Commands cleared and '/audibles' synced fresh")
+    bot.tree.clear_commands(guild=guild)
+    bot.tree.copy_global_to(guild=guild)
+    await bot.tree.sync(guild=guild)  # Instant sync to your server
+    await bot.tree.sync()  # Global sync (takes up to 1 hour)
+    print("✅ Slash command '/audibles' synced to guild and global scope")
 
 bot.run(TOKEN)
