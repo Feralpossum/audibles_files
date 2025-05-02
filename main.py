@@ -68,7 +68,8 @@ class SoundSelect(discord.ui.Select):
             self.vc.stop()
             source = discord.FFmpegPCMAudio(
                 mp3_url,
-                options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+                before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+                options="-vn -acodec libmp3lame -f mp3",
                 stderr=sys.stderr
             )
             self.vc.play(
