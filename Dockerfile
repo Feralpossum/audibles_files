@@ -8,4 +8,8 @@ WORKDIR /app
 COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
 
-CMD ["python", "-u", "main.py"]
+# Diagnostic steps before starting your bot
+CMD echo "✅ Container started; showing contents..." && \
+    ls -la && \
+    echo "📦 Attempting to run main.py..." && \
+    python -u main.py
