@@ -27,29 +27,28 @@ if not TOKEN or not guild_env:
     raise RuntimeError("❌ DISCORD_BOT_TOKEN or GUILD_ID is missing from environment variables.")
 GUILD_ID = int(guild_env)
 
-MP3_BASE_URL = "https://audiblesfiles.vercel.app/Audibles/"
-mp3_files = [
-    "Sandwich.mp3", "ReallyLonelyBeingYou.mp3", "Pleasestandstill.mp3",
-    "NotEvenSameZipCodeFunny.mp3", "Mwahahaha.mp3", "MmmRoar.mp3",
-    "LovesmeLovesmeNot.mp3", "KeepPunching.mp3", "INeverWinYouSuck.mp3",
-    "GreatestEVER.mp3", "FromADrunkenMonkey.mp3", "FatGuysNoMoney.mp3",
-    "DontSlipMoppingFloor.mp3", "DoneLosing.mp3", "Boo.mp3"
-]
+# Base URLs for local test and Boo fallback
+TEST_MP3_URLS = {
+    "TestBeep.mp3": "https://www.soundjay.com/button/beep-07.mp3",
+    "Boo.mp3": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3"
+}
+
+mp3_files = list(TEST_MP3_URLS.keys())
 
 # Create audio directory and download all MP3s locally
 Path("audio").mkdir(exist_ok=True)
-for file in mp3_files:
-    dest = Path("audio") / file
+for name, url in TEST_MP3_URLS.items():
+    dest = Path("audio") / name
     if not dest.exists():
         try:
-            print(f"⬇️ Downloading {file}...")
-            r = requests.get(MP3_BASE_URL + file)
+            print(f"⬇️ Downloading {name} from {url}")
+            r = requests.get(url)
             r.raise_for_status()
             with open(dest, "wb") as f:
                 f.write(r.content)
-            print(f"✅ Downloaded {file}")
+            print(f"✅ Downloaded {name}")
         except Exception as e:
-            print(f"❌ Failed to download {file}: {e}", file=sys.stderr)
+            print(f"❌ Failed to download {name}: {e}", file=sys.stderr)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -59,7 +58,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 class SoundSelect(discord.ui.Select):
     def __init__(self, vc):
         options = [discord.SelectOption(label=f.replace(".mp3", ""), value=f) for f in mp3_files]
-        super().__init__(placeholder="Choose a sound to play...", options=options)
+        super().__init__(placeholder="Choose a test sound...", options=options)
         self.vc = vc
 
     async def callback(self, interaction: discord.Interaction):
@@ -70,7 +69,7 @@ class SoundSelect(discord.ui.Select):
                 discord.FFmpegPCMAudio(path),
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
             )
-            await interaction.response.send_message(f"▶️ Playing: `{self.values[0]}`", ephemeral=True)
+            await interaction.response.send_message(f"▶️ Playing test file: `{self.values[0]}`", ephemeral=True)
         except Exception as e:
             print(f"Playback error: {e}", file=sys.stderr)
             await interaction.response.send_message("❌ Failed to play audio. Check logs.", ephemeral=True)
@@ -86,7 +85,7 @@ async def on_ready():
 
 @bot.tree.command(
     name="audibles",
-    description="Play a local MP3 from the dropdown",
+    description="Play a test MP3 from local disk",
     guild=discord.Object(id=GUILD_ID)
 )
 async def audibles(interaction: discord.Interaction):
@@ -97,7 +96,7 @@ async def audibles(interaction: discord.Interaction):
     voice_channel = interaction.user.voice.channel
     vc = await voice_channel.connect()
     view = SoundView(vc)
-    await interaction.response.send_message("🎵 Choose a sound to play:", view=view, ephemeral=True)
+    await interaction.response.send_message("🔊 Choose a test file to play:", view=view, ephemeral=True)
 
 @bot.event
 async def setup_hook():
