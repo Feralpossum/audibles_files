@@ -1,4 +1,3 @@
-
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -8,9 +7,8 @@ import requests
 from pathlib import Path
 import sys
 
-# Monkey patch VoiceClient to bypass opus encoder setup
+# VoiceClient monkey patch for simplified playback (for environments lacking Opus)
 original_play = discord.VoiceClient.play
-
 def patched_play(self, source, *, after=None):
     self.source = source
     self._connected = True
@@ -19,22 +17,14 @@ def patched_play(self, source, *, after=None):
     self._player = self.loop.create_task(self._play_audio(source, after))
 discord.VoiceClient.play = patched_play
 
-# Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-guild_env = os.getenv("GUILD_ID")
-if not TOKEN or not guild_env:
-    raise RuntimeError("❌ DISCORD_BOT_TOKEN or GUILD_ID is missing from environment variables.")
-GUILD_ID = int(guild_env)
+GUILD_ID = int(os.getenv("GUILD_ID"))
 
-# Known good WAV file from Kozco.com
 TEST_FILES = {
     "Piano.wav": "https://www.kozco.com/tech/piano2.wav"
 }
 
-wav_files = list(TEST_FILES.keys())
-
-# Create audio directory and download WAV files locally
 Path("audio").mkdir(exist_ok=True)
 for name, url in TEST_FILES.items():
     dest = Path("audio") / name
@@ -52,26 +42,28 @@ for name, url in TEST_FILES.items():
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 class SoundSelect(discord.ui.Select):
     def __init__(self, vc):
-        options = [discord.SelectOption(label=f.replace(".wav", ""), value=f) for f in wav_files]
-        super().__init__(placeholder="Choose a WAV sound...", options=options)
+        options = [discord.SelectOption(label=f.replace(".wav", ""), value=f) for f in TEST_FILES]
+        super().__init__(placeholder="Choose a WAV...", options=options)
         self.vc = vc
 
     async def callback(self, interaction: discord.Interaction):
-        path = f"audio/{self.values[0]}"
         try:
+            file_path = f"audio/{self.values[0]}"
             self.vc.stop()
             self.vc.play(
-                discord.FFmpegPCMAudio(path),
+                discord.FFmpegPCMAudio(file_path),
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
             )
-            await interaction.response.send_message(f"▶️ Playing: `{self.values[0]}`", ephemeral=True)
+            print(f"▶️ Playing: {file_path}")
+            await interaction.response.send_message(f"▶️ Playing: {self.values[0]}", ephemeral=True)
         except Exception as e:
             print(f"Playback error: {e}", file=sys.stderr)
-            await interaction.response.send_message("❌ Failed to play audio. Check logs.", ephemeral=True)
+            await interaction.response.send_message("❌ Error playing sound.", ephemeral=True)
 
 class SoundView(discord.ui.View):
     def __init__(self, vc):
@@ -84,26 +76,27 @@ async def on_ready():
 
 @bot.tree.command(
     name="audibles",
-    description="Play the Kozco piano WAV file",
+    description="Play a test WAV file",
     guild=discord.Object(id=GUILD_ID)
 )
 async def audibles(interaction: discord.Interaction):
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message("❗ Join a voice channel first.", ephemeral=True)
         return
-
-    voice_channel = interaction.user.voice.channel
     try:
-        vc = await voice_channel.connect()
+        vc = await interaction.user.voice.channel.connect()
     except discord.ClientException:
         vc = interaction.guild.voice_client
 
-    view = SoundView(vc)
-    await interaction.response.send_message("🎹 Choose a sound to play:", view=view, ephemeral=True)
+    await interaction.response.send_message("🎶 Choose a sound to play:", view=SoundView(vc), ephemeral=True)
 
 @bot.event
 async def setup_hook():
-    await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-    print("✅ Slash command '/audibles' registered directly to guild")
+    print("🔁 Running setup_hook()...")
+    try:
+        await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+        print("✅ Slash command '/audibles' registered to guild")
+    except Exception as e:
+        print(f"❌ Failed to sync commands: {e}", file=sys.stderr)
 
 bot.run(TOKEN)
