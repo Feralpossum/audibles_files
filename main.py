@@ -4,6 +4,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import os
 import asyncio
+import sys
 
 # Monkey patch VoiceClient to bypass opus encoder setup
 original_play = discord.VoiceClient.play
@@ -61,15 +62,20 @@ class SoundSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         mp3_url = f"{MP3_BASE_URL}{self.values[0]}"
+        print(f"🔊 Streaming from: {mp3_url}", file=sys.stderr)
         try:
             self.vc.stop()
+            source = discord.FFmpegPCMAudio(
+                mp3_url,
+                stderr=sys.stderr
+            )
             self.vc.play(
-                discord.FFmpegPCMAudio(mp3_url),
+                source,
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
             )
             await interaction.response.send_message(f"▶️ Playing: `{self.values[0]}`", ephemeral=True)
         except Exception as e:
-            print(f"Playback error: {e}")
+            print(f"Playback error: {e}", file=sys.stderr)
             await interaction.response.send_message("❌ Failed to play audio. Check logs.", ephemeral=True)
 
 class SoundView(discord.ui.View):
