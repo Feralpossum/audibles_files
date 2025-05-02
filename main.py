@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 import os
 import asyncio
 
-# Bypass Opus check to allow FFmpeg-only playback
-discord.opus._lib = True
+# Safely bypass Opus by monkey-patching the is_loaded check
+discord.opus.is_loaded = lambda: True
 
 # Load environment variables
 load_dotenv()
