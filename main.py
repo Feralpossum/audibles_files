@@ -7,7 +7,7 @@ import requests
 from pathlib import Path
 import sys
 
-# VoiceClient monkey patch for simplified playback (for environments lacking Opus)
+# Voice patching
 original_play = discord.VoiceClient.play
 def patched_play(self, source, *, after=None):
     self.source = source
@@ -19,8 +19,19 @@ discord.VoiceClient.play = patched_play
 
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-GUILD_ID = int(os.getenv("GUILD_ID"))
+GUILD_ID_RAW = os.getenv("GUILD_ID")
 
+print("🔍 Checking environment variables...")
+print(f"DISCORD_BOT_TOKEN is {'set' if TOKEN else 'NOT SET'}")
+print(f"GUILD_ID is: {GUILD_ID_RAW}")
+
+if not TOKEN or not GUILD_ID_RAW:
+    print("❌ ERROR: Missing DISCORD_BOT_TOKEN or GUILD_ID. Exiting.")
+    sys.exit(1)
+
+GUILD_ID = int(GUILD_ID_RAW)
+
+# Test audio file
 TEST_FILES = {
     "Piano.wav": "https://www.kozco.com/tech/piano2.wav"
 }
