@@ -76,9 +76,9 @@ async def audibles(interaction: discord.Interaction):
 @bot.event
 async def setup_hook():
     guild = discord.Object(id=GUILD_ID)
-    await bot.tree.clear_commands(guild=guild)  # Remove all previous commands
-    await bot.tree.copy_global_to(guild=guild)  # Copy the new commands
-    await bot.tree.sync(guild=guild)            # Sync to guild
+    bot.tree.clear_commands(guild=guild)  # ✅ FIXED: no await
+    await bot.tree.copy_global_to(guild=guild)
+    await bot.tree.sync(guild=guild)
     print("✅ Commands cleared and '/audibles' synced fresh")
 
 bot.run(TOKEN)
