@@ -66,7 +66,12 @@ class SoundView(discord.ui.View):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
-@discord.app_commands.command(name="audibles", description="Play an MP3 from the dropdown")
+# Register the command explicitly to the guild
+@bot.tree.command(
+    name="audibles",
+    description="Play an MP3 from the dropdown",
+    guild=discord.Object(id=GUILD_ID)
+)
 async def audibles(interaction: discord.Interaction):
     if not interaction.user.voice or not interaction.user.voice.channel:
         await interaction.response.send_message("❗ Join a voice channel first.", ephemeral=True)
@@ -79,11 +84,7 @@ async def audibles(interaction: discord.Interaction):
 
 @bot.event
 async def setup_hook():
-    guild = discord.Object(id=GUILD_ID)
-    bot.tree.clear_commands(guild=guild)
-    bot.tree.copy_global_to(guild=guild)
-    await bot.tree.sync(guild=guild)  # Instant sync to your server
-    await bot.tree.sync()  # Global sync (takes up to 1 hour)
-    print("✅ Slash command '/audibles' synced to guild and global scope")
+    await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
+    print("✅ Slash command '/audibles' registered directly to guild")
 
 bot.run(TOKEN)
