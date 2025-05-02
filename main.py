@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 import os
 import asyncio
 
+# Bypass Opus check to allow FFmpeg-only playback
+discord.opus._lib = True
+
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -66,7 +69,6 @@ class SoundView(discord.ui.View):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
-# Register the command explicitly to the guild
 @bot.tree.command(
     name="audibles",
     description="Play an MP3 from the dropdown",
