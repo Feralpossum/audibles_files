@@ -27,14 +27,14 @@ if not TOKEN or not guild_env:
     raise RuntimeError("❌ DISCORD_BOT_TOKEN or GUILD_ID is missing from environment variables.")
 GUILD_ID = int(guild_env)
 
-# Test WAV file (should decode fine without mp3 decoder)
+# Known good WAV file from Kozco.com
 TEST_FILES = {
-    "TestBeep.wav": "https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav"
+    "Piano.wav": "https://www.kozco.com/tech/piano2.wav"
 }
 
-mp3_files = list(TEST_FILES.keys())
+wav_files = list(TEST_FILES.keys())
 
-# Create audio directory and download all test files locally
+# Create audio directory and download WAV files locally
 Path("audio").mkdir(exist_ok=True)
 for name, url in TEST_FILES.items():
     dest = Path("audio") / name
@@ -56,8 +56,8 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 class SoundSelect(discord.ui.Select):
     def __init__(self, vc):
-        options = [discord.SelectOption(label=f.replace(".wav", ""), value=f) for f in mp3_files]
-        super().__init__(placeholder="Choose a test sound...", options=options)
+        options = [discord.SelectOption(label=f.replace(".wav", ""), value=f) for f in wav_files]
+        super().__init__(placeholder="Choose a WAV sound...", options=options)
         self.vc = vc
 
     async def callback(self, interaction: discord.Interaction):
@@ -68,7 +68,7 @@ class SoundSelect(discord.ui.Select):
                 discord.FFmpegPCMAudio(path),
                 after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
             )
-            await interaction.response.send_message(f"▶️ Playing test WAV: `{self.values[0]}`", ephemeral=True)
+            await interaction.response.send_message(f"▶️ Playing: `{self.values[0]}`", ephemeral=True)
         except Exception as e:
             print(f"Playback error: {e}", file=sys.stderr)
             await interaction.response.send_message("❌ Failed to play audio. Check logs.", ephemeral=True)
@@ -84,7 +84,7 @@ async def on_ready():
 
 @bot.tree.command(
     name="audibles",
-    description="Play a test WAV file from local disk",
+    description="Play the Kozco piano WAV file",
     guild=discord.Object(id=GUILD_ID)
 )
 async def audibles(interaction: discord.Interaction):
@@ -99,7 +99,7 @@ async def audibles(interaction: discord.Interaction):
         vc = interaction.guild.voice_client
 
     view = SoundView(vc)
-    await interaction.response.send_message("🔊 Choose a test WAV to play:", view=view, ephemeral=True)
+    await interaction.response.send_message("🎹 Choose a sound to play:", view=view, ephemeral=True)
 
 @bot.event
 async def setup_hook():
