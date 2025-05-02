@@ -7,7 +7,10 @@ import os
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-GUILD_ID = int(os.getenv("GUILD_ID"))
+guild_env = os.getenv("GUILD_ID")
+if not TOKEN or not guild_env:
+    raise RuntimeError("❌ DISCORD_BOT_TOKEN or GUILD_ID is missing from environment variables.")
+GUILD_ID = int(guild_env)
 
 # Public base URL for hosted MP3 files
 MP3_BASE_URL = "https://audibles-files-karls-projects-20dd944d.vercel.app/"
@@ -38,7 +41,6 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Dropdown component
 class SoundSelect(discord.ui.Select):
     def __init__(self, vc):
         options = [
@@ -59,7 +61,6 @@ class SoundView(discord.ui.View):
         super().__init__()
         self.add_item(SoundSelect(vc))
 
-# Bot events and commands
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
@@ -80,6 +81,7 @@ async def setup_hook():
     guild = discord.Object(id=GUILD_ID)
     bot.tree.copy_global_to(guild=guild)
     await bot.tree.sync(guild=guild)
+    print("✅ Slash command '/audibles' synced to your server")
 
-# Start bot
+# Run the bot
 bot.run(TOKEN)
