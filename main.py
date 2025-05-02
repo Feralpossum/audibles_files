@@ -1,103 +1,81 @@
-import os
 import discord
-import asyncio
-import requests
 from discord import app_commands
 from discord.ext import commands
+import os
 from dotenv import load_dotenv
-from pathlib import Path
-
-# Environment setup
-load_dotenv()
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-GUILD_ID = int(os.getenv("GUILD_ID", "0"))
-
-# Final test MP3s from Vercel
-AUDIBLES = {
-    "Boo": {'url': 'https://audiblesfiles.vercel.app/Audibles/Boo.mp3', 'emoji': '👻', 'description': "Play the sound 'Boo'"},
-    "DoneLosing": {'url': 'https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3', 'emoji': '✅', 'description': "Play the sound 'DoneLosing'"},
-    "DontSlipMoppingFloor": {'url': 'https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp3', 'emoji': '🧼', 'description': "Play the sound 'DontSlipMoppingFloor'"},
-    "FatGuysNoMoney": {'url': 'https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp3', 'emoji': '🍔', 'description': "Play the sound 'FatGuysNoMoney'"}
-}
-
-Path("audio").mkdir(exist_ok=True)
 
 intents = discord.Intents.default()
 intents.message_content = True
-intents.voice_states = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+
+load_dotenv()
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+GUILD_ID = int(os.getenv("GUILD_ID"))
+
+tree = app_commands.CommandTree(discord.Client(intents=intents))
+bot = commands.Bot(command_prefix="/", intents=intents)
+
+# List of MP3 files and their URLs
+SOUNDS = {
+    "😮 Boo": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3",
+    "😡 DoneLosing": "https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3",
+    "⚡ DontSlipMoppingFloor": "https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp3",
+    "💸 FatGuysNoMoney": "https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp3",
+    "🦄 FromADrunkenMonkey": "https://audiblesfiles.vercel.app/Audibles/FromADrunkenMonkey.mp3",
+    "🏆 GreatestEVER": "https://audiblesfiles.vercel.app/Audibles/GreatestEVER.mp3",
+    "🙃 INeverWinYouSuck": "https://audiblesfiles.vercel.app/Audibles/INeverWinYouSuck.mp3",
+    "🥊 KeepPunching": "https://audiblesfiles.vercel.app/Audibles/KeepPunching.mp3",
+    "💕 LovesmeLovesmeNot": "https://audiblesfiles.vercel.app/Audibles/LovesmeLovesmeNot.mp3",
+    "🌞 Mom": "https://audiblesfiles.vercel.app/Audibles/Mom.mp3",
+}
 
 class SoundSelect(discord.ui.Select):
-    def __init__(self, vc: discord.VoiceClient):
-        self.vc = vc
+    def __init__(self):
         options = [
-            discord.SelectOption(
-                label=name,
-                description=meta["description"],
-                emoji=meta["emoji"],
-                value=name
-            )
-            for name, meta in AUDIBLES.items()
+            discord.SelectOption(label=name, value=url)
+            for name, url in SOUNDS.items()
         ]
-        super().__init__(placeholder="Pick a sound to play...", options=options)
+        super().__init__(
+            placeholder="Pick a sound to play...",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
 
     async def callback(self, interaction: discord.Interaction):
-        sound_name = self.values[0]
-        url = AUDIBLES[sound_name]["url"]
-        filename = f"audio/{sound_name}.mp3"
-        try:
-            await interaction.response.defer(ephemeral=True)
+        url = self.values[0]
+        voice_channel = interaction.user.voice.channel
+        if not voice_channel:
+            await interaction.response.send_message("You must be in a voice channel first.", ephemeral=True)
+            return
 
-            if not os.path.exists(filename):
-                r = requests.get(url)
-                r.raise_for_status()
-                with open(filename, "wb") as f:
-                    f.write(r.content)
+        vc = await voice_channel.connect()
+        ffmpeg_audio = discord.FFmpegPCMAudio(
+            url,
+            executable="./ffmpeg",
+            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            options="-f mp3 -vn"
+        )
+        vc.play(ffmpeg_audio)
 
-            if self.vc.is_playing():
-                self.vc.stop()
+        await interaction.response.send_message(f"🎵 Now playing: `{self.label}`")
 
-            self.vc.play(
-                discord.FFmpegPCMAudio(filename),
-                after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
-            )
+        while vc.is_playing():
+            await discord.utils.sleep_until(discord.utils.utcnow() + discord.utils.timedelta(seconds=1))
 
-            await interaction.followup.send(f"🔊 Playing: **{sound_name}**", ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"❌ Error playing sound: {e}", ephemeral=True)
+        await vc.disconnect()
 
 class SoundView(discord.ui.View):
-    def __init__(self, vc: discord.VoiceClient):
+    def __init__(self):
         super().__init__(timeout=180)
-        self.add_item(SoundSelect(vc))
+        self.add_item(SoundSelect())
+
+@tree.command(name="audibles", description="Play a sound clip", guild=discord.Object(id=GUILD_ID))
+async def audibles(interaction: discord.Interaction):
+    await interaction.response.send_message("Pick a sound to play:", view=SoundView(), ephemeral=True)
 
 @bot.event
 async def on_ready():
-    try:
-        synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
-        print(f"✅ Slash command '/audibles' registered ({len(synced)} commands)")
-    except Exception as e:
-        print(f"❌ Failed to sync commands: {e}")
+    await tree.sync(guild=discord.Object(id=GUILD_ID))
     print(f"✅ Logged in as {bot.user}")
-
-@bot.tree.command(name="audibles", description="Play a sound", guild=discord.Object(id=GUILD_ID))
-async def audibles(interaction: discord.Interaction):
-    if not interaction.user.voice or not interaction.user.voice.channel:
-        await interaction.response.send_message("❗ Join a voice channel first.", ephemeral=True)
-        return
-
-    voice_channel = interaction.user.voice.channel
-
-    if interaction.guild.voice_client:
-        try:
-            await interaction.guild.voice_client.disconnect(force=True)
-        except Exception:
-            pass
-
-    try:
-        vc = await voice_channel.connect()
-        await interaction.response.send_message("🎵 Choose a sound:", view=SoundView(vc), ephemeral=True)
-    except Exception as e:
-        await interaction.response.send_message(f"⚠️ Could not join channel: {e}", ephemeral=True)
 
 bot.run(TOKEN)
