@@ -12,10 +12,8 @@ if not TOKEN or not guild_env:
     raise RuntimeError("❌ DISCORD_BOT_TOKEN or GUILD_ID is missing from environment variables.")
 GUILD_ID = int(guild_env)
 
-# Public base URL for hosted MP3 files
 MP3_BASE_URL = "https://audibles-files-karls-projects-20dd944d.vercel.app/"
 
-# List of available MP3 files
 mp3_files = [
     "Sandwich.mp3",
     "ReallyLonelyBeingYou.mp3",
@@ -34,7 +32,6 @@ mp3_files = [
     "Boo.mp3"
 ]
 
-# Bot setup
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
@@ -79,9 +76,9 @@ async def audibles(interaction: discord.Interaction):
 @bot.event
 async def setup_hook():
     guild = discord.Object(id=GUILD_ID)
-    bot.tree.copy_global_to(guild=guild)
-    await bot.tree.sync(guild=guild)
-    print("✅ Slash command '/audibles' synced to your server")
+    await bot.tree.clear_commands(guild=guild)  # Remove all previous commands
+    await bot.tree.copy_global_to(guild=guild)  # Copy the new commands
+    await bot.tree.sync(guild=guild)            # Sync to guild
+    print("✅ Commands cleared and '/audibles' synced fresh")
 
-# Run the bot
 bot.run(TOKEN)
