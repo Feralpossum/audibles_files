@@ -25,7 +25,8 @@ if not TOKEN or not guild_env:
     raise RuntimeError("❌ DISCORD_BOT_TOKEN or GUILD_ID is missing from environment variables.")
 GUILD_ID = int(guild_env)
 
-MP3_BASE_URL = "https://audibles-files-karls-projects-20dd944d.vercel.app/"
+# Correct base URL with working MP3 format
+MP3_BASE_URL = "https://audiblesfiles.vercel.app/Audibles/"
 
 mp3_files = [
     "Sandwich.mp3",
@@ -67,6 +68,7 @@ class SoundSelect(discord.ui.Select):
             self.vc.stop()
             source = discord.FFmpegPCMAudio(
                 mp3_url,
+                options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
                 stderr=sys.stderr
             )
             self.vc.play(
