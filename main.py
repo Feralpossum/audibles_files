@@ -12,31 +12,14 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID", "0"))
 
-# Vercel-hosted MP3s
+# Final test MP3s from Vercel
 AUDIBLES = {
-    "Boo": {
-        "url": "https://audiblesfiles.vercel.app/Audibles/Boo.mp3",
-        "emoji": "👻",
-        "description": "A spooky boo!"
-    },
-    "Fart": {
-        "url": "https://audiblesfiles.vercel.app/Audibles/Fart.mp3",
-        "emoji": "💨",
-        "description": "Classic comedic timing"
-    },
-    "Wow": {
-        "url": "https://audiblesfiles.vercel.app/Audibles/Wow.mp3",
-        "emoji": "😲",
-        "description": "Astonishing!"
-    },
-    "Horn": {
-        "url": "https://audiblesfiles.vercel.app/Audibles/Horn.mp3",
-        "emoji": "📣",
-        "description": "Airhorn madness"
-    }
+    "Boo": {'url': 'https://audiblesfiles.vercel.app/Audibles/Boo.mp3', 'emoji': '👻', 'description': "Play the sound 'Boo'"},
+    "DoneLosing": {'url': 'https://audiblesfiles.vercel.app/Audibles/DoneLosing.mp3', 'emoji': '✅', 'description': "Play the sound 'DoneLosing'"},
+    "DontSlipMoppingFloor": {'url': 'https://audiblesfiles.vercel.app/Audibles/DontSlipMoppingFloor.mp3', 'emoji': '🧼', 'description': "Play the sound 'DontSlipMoppingFloor'"},
+    "FatGuysNoMoney": {'url': 'https://audiblesfiles.vercel.app/Audibles/FatGuysNoMoney.mp3', 'emoji': '🍔', 'description': "Play the sound 'FatGuysNoMoney'"}
 }
 
-# Ensure audio folder
 Path("audio").mkdir(exist_ok=True)
 
 intents = discord.Intents.default()
@@ -105,7 +88,6 @@ async def audibles(interaction: discord.Interaction):
 
     voice_channel = interaction.user.voice.channel
 
-    # Disconnect if already connected
     if interaction.guild.voice_client:
         try:
             await interaction.guild.voice_client.disconnect(force=True)
@@ -119,4 +101,3 @@ async def audibles(interaction: discord.Interaction):
         await interaction.response.send_message(f"⚠️ Could not join channel: {e}", ephemeral=True)
 
 bot.run(TOKEN)
-
