@@ -5,8 +5,16 @@ from dotenv import load_dotenv
 import os
 import asyncio
 
-# Safely bypass Opus by monkey-patching the is_loaded check
-discord.opus.is_loaded = lambda: True
+# Monkey patch VoiceClient to bypass opus encoder setup
+original_play = discord.VoiceClient.play
+
+def patched_play(self, source, *, after=None):
+    self.source = source
+    self._connected = True
+    self._playing = True
+    self._end_event.clear()
+    self._player = self.loop.create_task(self._play_audio(source, after))
+discord.VoiceClient.play = patched_play
 
 # Load environment variables
 load_dotenv()
@@ -53,12 +61,16 @@ class SoundSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         mp3_url = f"{MP3_BASE_URL}{self.values[0]}"
-        self.vc.stop()
-        self.vc.play(
-            discord.FFmpegPCMAudio(mp3_url),
-            after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
-        )
-        await interaction.response.send_message(f"▶️ Playing: `{self.values[0]}`", ephemeral=True)
+        try:
+            self.vc.stop()
+            self.vc.play(
+                discord.FFmpegPCMAudio(mp3_url),
+                after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
+            )
+            await interaction.response.send_message(f"▶️ Playing: `{self.values[0]}`", ephemeral=True)
+        except Exception as e:
+            print(f"Playback error: {e}")
+            await interaction.response.send_message("❌ Failed to play audio. Check logs.", ephemeral=True)
 
 class SoundView(discord.ui.View):
     def __init__(self, vc):
