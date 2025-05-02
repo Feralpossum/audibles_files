@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 import os
+import asyncio
 
 # Load environment variables
 load_dotenv()
@@ -50,7 +51,10 @@ class SoundSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         mp3_url = f"{MP3_BASE_URL}{self.values[0]}"
         self.vc.stop()
-        self.vc.play(discord.FFmpegPCMAudio(mp3_url), after=lambda e: print(f"Finished: {e}"))
+        self.vc.play(
+            discord.FFmpegPCMAudio(mp3_url),
+            after=lambda e: asyncio.run_coroutine_threadsafe(self.vc.disconnect(), bot.loop)
+        )
         await interaction.response.send_message(f"▶️ Playing: `{self.values[0]}`", ephemeral=True)
 
 class SoundView(discord.ui.View):
@@ -76,8 +80,8 @@ async def audibles(interaction: discord.Interaction):
 @bot.event
 async def setup_hook():
     guild = discord.Object(id=GUILD_ID)
-    bot.tree.clear_commands(guild=guild)  # ✅ FIXED: no await
-    await bot.tree.copy_global_to(guild=guild)
+    bot.tree.clear_commands(guild=guild)  # FIXED: no await
+    bot.tree.copy_global_to(guild=guild)  # FIXED: no await
     await bot.tree.sync(guild=guild)
     print("✅ Commands cleared and '/audibles' synced fresh")
 
