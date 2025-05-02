@@ -1,68 +1,62 @@
-
-import discord
-from discord.ext import commands
-from discord import app_commands
 import os
-import asyncio
-import requests
-from datetime import timedelta
-from discord.utils import sleep_until, utcnow
+import discord
+from discord import app_commands
+from discord.ext import commands
+from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
 
-TEST_AUDIO_URL = "https://www.kozco.com/tech/piano2.wav"
-AUDIO_PATH = "piano2.wav"
-
-# Download the test audio file
-print(f"⬇️ Downloading test WAV file from {TEST_AUDIO_URL}")
-try:
-    response = requests.get(TEST_AUDIO_URL)
-    response.raise_for_status()
-    with open(AUDIO_PATH, "wb") as f:
-        f.write(response.content)
-    print(f"✅ Downloaded {AUDIO_PATH}")
-except Exception as e:
-    print(f"❌ Failed to download test audio file: {e}")
-
+# Bot setup
 intents = discord.Intents.default()
-intents.message_content = True
-intents.voice_states = True
-
 client = commands.Bot(command_prefix="!", intents=intents)
-tree = app_commands.CommandTree(client)
+tree = client.tree  # Correct way to use command tree in discord.py v2+
 
-@tree.command(name="testaudio", description="Play the test WAV file")
-async def test_audio(interaction: discord.Interaction):
-    if not interaction.user.voice or not interaction.user.voice.channel:
-        await interaction.response.send_message("❗ Join a voice channel first.", ephemeral=True)
-        return
-
-    voice_channel = interaction.user.voice.channel
-
-    # Check if already connected
-    if interaction.guild.voice_client:
-        vc = interaction.guild.voice_client
-    else:
-        vc = await voice_channel.connect()
-
-    # Play the WAV file
-    source = discord.FFmpegPCMAudio(AUDIO_PATH)
-    vc.play(source)
-
-    await interaction.response.send_message(f"🔊 Playing `{AUDIO_PATH}`", ephemeral=True)
-
-    # Wait for audio to play
-    await sleep_until(utcnow() + timedelta(seconds=1))
-    while vc.is_playing():
-        await asyncio.sleep(1)
-
-    await vc.disconnect()
+# Download test file at container startup
+import requests
+url = "https://www.kozco.com/tech/piano2.wav"
+filename = "piano2.wav"
+if not os.path.exists(filename):
+    print(f"⬇️ Downloading test WAV file from {url}")
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        with open(filename, "wb") as f:
+            f.write(response.content)
+        print(f"✅ Downloaded {filename}")
+    except Exception as e:
+        print(f"Failed to download test file: {e}")
 
 @client.event
 async def on_ready():
     print(f"Logged in as {client.user} (ID: {client.user.id})")
-    await tree.sync(guild=discord.Object(id=GUILD_ID))
-    print("✅ Slash command '/testaudio' registered")
+    try:
+        synced = await tree.sync(guild=discord.Object(id=GUILD_ID))
+        print(f"✅ Slash command '/testaudio' registered ({len(synced)} commands)")
+    except Exception as e:
+        print(f"Failed to sync commands: {e}")
+
+@tree.command(name="testaudio", description="Play a test WAV file in your voice channel")
+async def test_audio(interaction: discord.Interaction):
+    if not interaction.user.voice or not interaction.user.voice.channel:
+        await interaction.response.send_message("❌ You must be in a voice channel to use this command.", ephemeral=True)
+        return
+
+    voice_channel = interaction.user.voice.channel
+    try:
+        vc = await voice_channel.connect()
+    except discord.ClientException:
+        vc = discord.utils.get(client.voice_clients, guild=interaction.guild)
+
+    await interaction.response.send_message("🔊 Playing test WAV file...", ephemeral=True)
+
+    vc.play(discord.FFmpegPCMAudio(source=filename), after=lambda e: print(f"Playback done: {e}" if e else "Finished successfully."))
+
+    while vc.is_playing():
+        await discord.utils.sleep_until(discord.utils.utcnow() + discord.utils.timedelta(seconds=1))
+
+    await vc.disconnect()
 
 client.run(TOKEN)
