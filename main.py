@@ -1,45 +1,43 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
 from discord.ui import Select, View
 import asyncio
 import os
 import aiohttp
 import io
-import subprocess
 
-# Load your Discord bot token and guild ID from environment variables
+# Load token and guild ID from environment
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
 
-# Use the raw GitHub URLs to avoid any CDN issues
+# Base URL pointing to your raw GitHub repository files
 BASE_URL = "https://raw.githubusercontent.com/Feralpossum/audibles_files/main/Audibles"
 
-# All of your audibles with descriptions and emojis
+# Define your audibles with descriptions and emojis
 AUDIBLES = {
-    "Boo":                {"description": "Classic jump scare",     "emoji": "🎃"},
-    "DoneLosing":         {"description": "Over it already",       "emoji": "🏁"},
-    "DontSlipMoppingFloor":{"description": "Careful... it's wet!", "emoji": "🧹"},
-    "FatGuysNoMoney":     {"description": "Hard relatable moment","emoji": "💸"},
-    "FromADrunkenMonkey": {"description": "Monkey mayhem",         "emoji": "🐒"},
-    "GreatestEVER":       {"description": "All-time hype",         "emoji": "🏆"},
-    "INeverWinYouSuck":   {"description": "Ultimate sore loser",  "emoji": "😡"},
-    "KeepPunching":       {"description": "Fight back!",           "emoji": "🥊"},
-    "LovesomeLovesomeNot":{"description": "Love's a battlefield","emoji": "💔"},
-    "Mmm_roar":           {"description": "Rawr means love",       "emoji": "🦁"},
-    "Mwahahaha":          {"description": "Evil laugh",            "emoji": "😈"},
-    "NotEvenSameZipCodeFunny":{"description":"You're not even close!","emoji":"🏡"},
-    "Pleasestandstill":   {"description": "Deer in headlights",    "emoji": "🦌"},
-    "ReallyLonelyBeingYou":{"description":"A tragic roast",      "emoji":"😢"},
-    "Sandwich":           {"description": "Time for lunch",        "emoji": "🥪"},
-    "Score":              {"description": "Winning!",              "emoji": "🏅"},
-    "SeriouslyEvenTrying":{"description": "Are you even trying?","emoji":"🤨"},
-    "ShakeLikeItDidntHurt":{"description":"Shake it off",        "emoji":"🕺"},
-    "WelcomeExpectingYou":{"description": "Grand entrance",       "emoji": "🎉"},
-    "Yawn":               {"description": "So bored",              "emoji": "🥱"},
+    "Boo":                  {"description": "Classic jump scare",     "emoji": "🎃"},
+    "DoneLosing":           {"description": "Over it already",       "emoji": "🏁"},
+    "DontSlipMoppingFloor": {"description": "Careful... it's wet!", "emoji": "🧹"},
+    "FatGuysNoMoney":       {"description": "Hard relatable moment", "emoji": "💸"},
+    "FromADrunkenMonkey":   {"description": "Monkey mayhem",         "emoji": "🐒"},
+    "GreatestEVER":         {"description": "All-time hype",         "emoji": "🏆"},
+    "INeverWinYouSuck":     {"description": "Ultimate sore loser",   "emoji": "😡"},
+    "KeepPunching":         {"description": "Fight back!",           "emoji": "🥊"},
+    "LovesomeLovesomeNot":  {"description": "Love's a battlefield",  "emoji": "💔"},
+    "Mmm_roar":             {"description": "Rawr means love",       "emoji": "🦁"},
+    "Mwahahaha":            {"description": "Evil laugh",            "emoji": "😈"},
+    "NotEvenSameZipCodeFunny": {"description":"You're not even close!","emoji":"🏡"},
+    "Pleasestandstill":     {"description": "Deer in headlights",    "emoji": "🦌"},
+    "ReallyLonelyBeingYou": {"description": "A tragic roast",       "emoji": "😢"},
+    "Sandwich":             {"description": "Time for lunch",        "emoji": "🥪"},
+    "Score":                {"description": "Winning!",              "emoji": "🏅"},
+    "SeriouslyEvenTrying":  {"description": "Are you even trying?", "emoji": "🤨"},
+    "ShakeLikeItDidntHurt": {"description": "Shake it off",          "emoji": "🕺"},
+    "WelcomeExpectingYou":  {"description": "Grand entrance",        "emoji": "🎉"},
+    "Yawn":                 {"description": "So bored",              "emoji": "🥱"},
 }
 
-# Create the bot with voice and interactions enabled
+# Create bot with voice intent
 intents = discord.Intents.default()
 intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -61,36 +59,35 @@ class AudibleSelect(Select):
         mp4_url = f"{BASE_URL}/{choice}.mp4"
         mp3_url = f"{BASE_URL}/{choice}.mp3"
 
-        # Acknowledge the interaction so we can take time to fetch
+        # Acknowledge the interaction
         await interaction.response.defer()
 
-        # --- Send the MP4 visual ---
+        # Send MP4 visual to chat
         try:
             async with aiohttp.ClientSession() as sess:
                 async with sess.get(mp4_url) as resp:
                     if resp.status == 200:
-                        buffer = io.BytesIO(await resp.read())
+                        buf = io.BytesIO(await resp.read())
                         await interaction.followup.send(
-                            file=discord.File(buffer, filename=f"{choice}.mp4")
+                            file=discord.File(buf, filename=f"{choice}.mp4")
                         )
                     else:
                         await interaction.followup.send(
-                            f"⚠️ MP4 unavailable for **{choice}** (HTTP {resp.status})"
+                            f"⚠️ MP4 unavailable (HTTP {resp.status})"
                         )
         except Exception as e:
             await interaction.followup.send(f"❌ Error fetching MP4: {e}")
 
-        # --- Play the MP3 in voice channel ---
+        # Play MP3 in voice channel
         if interaction.user.voice and interaction.user.voice.channel:
             vc = interaction.guild.voice_client or await interaction.user.voice.channel.connect()
             try:
                 source = discord.FFmpegPCMAudio(
                     mp3_url,
-                    executable="./ffmpeg",
+                    executable="ffmpeg",
                     before_options="-re"
                 )
                 vc.play(source)
-                # Wait until the audio is done
                 while vc.is_playing():
                     await asyncio.sleep(1)
                 await vc.disconnect()
