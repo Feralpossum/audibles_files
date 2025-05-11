@@ -7,14 +7,14 @@ from discord.ext import commands
 from discord.ui import Select, View
 from discord import FFmpegPCMAudio, PCMVolumeTransformer
 
-# Load your bot token and guild ID from environment
+# Load your bot token and guild ID from environment variables
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
 
-# Base URL for your raw GitHub–hosted audibles
+# Raw GitHub URL for your hosted audibles
 BASE_URL = "https://raw.githubusercontent.com/Feralpossum/audibles_files/main/Audibles"
 
-# All audibles with descriptions and emojis
+# The list of audibles with descriptions and emojis
 AUDIBLES = {
     "Boo":                  {"description": "Classic jump scare",     "emoji": "🎃"},
     "DoneLosing":           {"description": "Over it already",       "emoji": "🏁"},
@@ -29,7 +29,7 @@ AUDIBLES = {
     "Mwahahaha":            {"description": "Evil laugh",            "emoji": "😈"},
     "NotEvenSameZipCodeFunny":{"description":"You're not even close!","emoji":"🏡"},
     "Pleasestandstill":     {"description": "Deer in headlights",    "emoji": "🦌"},
-    "ReallyLonelyBeingYou":{"description": "A tragic roast",        "emoji": "😢"},
+    "ReallyLonelyBeingYou":{"description": "A tragic roast",       "emoji": "😢"},
     "Sandwich":             {"description": "Time for lunch",        "emoji": "🥪"},
     "Score":                {"description": "Winning!",              "emoji": "🏅"},
     "SeriouslyEvenTrying":  {"description": "Are you even trying?", "emoji": "🤨"},
@@ -50,10 +50,11 @@ class AudibleSelect(Select):
             min_values=1,
             max_values=1,
             options=[
-                discord.SelectOption(label=name,
-                                     description=data["description"],
-                                     emoji=data["emoji"])
-                for name, data in AUDIBLES.items()
+                discord.SelectOption(
+                    label=name,
+                    description=data["description"],
+                    emoji=data["emoji"]
+                ) for name, data in AUDIBLES.items()
             ]
         )
 
@@ -62,26 +63,26 @@ class AudibleSelect(Select):
         mp4_url = f"{BASE_URL}/{choice}.mp4"
         mp3_url = f"{BASE_URL}/{choice}.mp3"
 
-        # Acknowledge the interaction
+        # Acknowledge so we have time to fetch
         await interaction.response.defer()
 
-        # 1) Send MP4 visual
+        # 1) Send MP4 visual (will autoplay muted)
         try:
             async with aiohttp.ClientSession() as sess:
                 async with sess.get(mp4_url) as resp:
                     if resp.status == 200:
-                        buf = io.BytesIO(await resp.read())
+                        buffer = io.BytesIO(await resp.read())
                         await interaction.followup.send(
-                            file=discord.File(buf, filename=f"{choice}.mp4")
+                            file=discord.File(buffer, filename=f"{choice}.mp4")
                         )
                     else:
                         await interaction.followup.send(
-                            f"⚠️ MP4 unavailable for **{choice}** (HTTP {resp.status})"
+                            f"⚠️ Couldn’t fetch video for **{choice}** (HTTP {resp.status})"
                         )
         except Exception as e:
-            await interaction.followup.send(f"❌ Error fetching MP4: {e}")
+            await interaction.followup.send(f"❌ Video fetch error: {e}")
 
-        # 2) Play MP3 in voice channel
+        # 2) Join voice channel & autoplay MP3
         if interaction.user.voice and interaction.user.voice.channel:
             vc = interaction.guild.voice_client or await interaction.user.voice.channel.connect()
             try:
