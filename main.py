@@ -1,20 +1,20 @@
+import os
+import io
+import asyncio
+import aiohttp
 import discord
 from discord.ext import commands
 from discord.ui import Select, View
-import asyncio
-import os
-import aiohttp
-import io
-import subprocess
+from discord import FFmpegPCMAudio, PCMVolumeTransformer
 
-# Load token and guild ID from environment variables
+# Load your bot token and guild ID from environment
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
 
-# Base URL pointing to your raw GitHub repository files
+# Base URL for your raw GitHub–hosted audibles
 BASE_URL = "https://raw.githubusercontent.com/Feralpossum/audibles_files/main/Audibles"
 
-# Audibles dictionary
+# All audibles with descriptions and emojis
 AUDIBLES = {
     "Boo":                  {"description": "Classic jump scare",     "emoji": "🎃"},
     "DoneLosing":           {"description": "Over it already",       "emoji": "🏁"},
@@ -24,12 +24,12 @@ AUDIBLES = {
     "GreatestEVER":         {"description": "All-time hype",         "emoji": "🏆"},
     "INeverWinYouSuck":     {"description": "Ultimate sore loser",  "emoji": "😡"},
     "KeepPunching":         {"description": "Fight back!",           "emoji": "🥊"},
-    "LovesomeLovesomeNot":  {"description": "Love's a battlefield", "emoji": "💔"},
+    "LovesomeLovesomeNot":  {"description": "Love's a battlefield",  "emoji": "💔"},
     "Mmm_roar":             {"description": "Rawr means love",       "emoji": "🦁"},
     "Mwahahaha":            {"description": "Evil laugh",            "emoji": "😈"},
     "NotEvenSameZipCodeFunny":{"description":"You're not even close!","emoji":"🏡"},
     "Pleasestandstill":     {"description": "Deer in headlights",    "emoji": "🦌"},
-    "ReallyLonelyBeingYou":{"description": "A tragic roast",       "emoji": "😢"},
+    "ReallyLonelyBeingYou":{"description": "A tragic roast",        "emoji": "😢"},
     "Sandwich":             {"description": "Time for lunch",        "emoji": "🥪"},
     "Score":                {"description": "Winning!",              "emoji": "🏅"},
     "SeriouslyEvenTrying":  {"description": "Are you even trying?", "emoji": "🤨"},
@@ -38,7 +38,7 @@ AUDIBLES = {
     "Yawn":                 {"description": "So bored",              "emoji": "🥱"},
 }
 
-# Create bot with voice intent
+# Create bot with voice intent enabled
 intents = discord.Intents.default()
 intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -46,11 +46,13 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 class AudibleSelect(Select):
     def __init__(self):
         super().__init__(
-            placeholder="Select an audible...",
+            placeholder="Select an audible…",
             min_values=1,
             max_values=1,
             options=[
-                discord.SelectOption(label=name, description=data["description"], emoji=data["emoji"])
+                discord.SelectOption(label=name,
+                                     description=data["description"],
+                                     emoji=data["emoji"])
                 for name, data in AUDIBLES.items()
             ]
         )
@@ -60,32 +62,38 @@ class AudibleSelect(Select):
         mp4_url = f"{BASE_URL}/{choice}.mp4"
         mp3_url = f"{BASE_URL}/{choice}.mp3"
 
-        # Defer to allow time
+        # Acknowledge the interaction
         await interaction.response.defer()
 
-        # Send MP4 visual
+        # 1) Send MP4 visual
         try:
             async with aiohttp.ClientSession() as sess:
                 async with sess.get(mp4_url) as resp:
                     if resp.status == 200:
                         buf = io.BytesIO(await resp.read())
-                        await interaction.followup.send(file=discord.File(buf, filename=f"{choice}.mp4"))
+                        await interaction.followup.send(
+                            file=discord.File(buf, filename=f"{choice}.mp4")
+                        )
                     else:
-                        await interaction.followup.send(f"⚠️ MP4 unavailable (HTTP {resp.status})")
+                        await interaction.followup.send(
+                            f"⚠️ MP4 unavailable for **{choice}** (HTTP {resp.status})"
+                        )
         except Exception as e:
             await interaction.followup.send(f"❌ Error fetching MP4: {e}")
 
-        # Play MP3 in voice channel
+        # 2) Play MP3 in voice channel
         if interaction.user.voice and interaction.user.voice.channel:
             vc = interaction.guild.voice_client or await interaction.user.voice.channel.connect()
             try:
-                process = subprocess.Popen(
-                    ["ffmpeg", "-re", "-i", mp3_url, "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL
+                ffmpeg_opts = {
+                    "executable": "ffmpeg",
+                    "before_options": "-re -nostdin",
+                    "options": "-vn"
+                }
+                source = PCMVolumeTransformer(
+                    FFmpegPCMAudio(mp3_url, **ffmpeg_opts)
                 )
-                audio = discord.PCMAudio(process.stdout)
-                vc.play(audio)
+                vc.play(source)
                 while vc.is_playing():
                     await asyncio.sleep(1)
                 await vc.disconnect()
@@ -104,7 +112,7 @@ async def on_ready():
         synced = await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
         print(f"✅ Synced {len(synced)} slash commands")
     except Exception as e:
-        print(f"❌ Sync failed: {e}")
+        print(f"❌ Slash command sync failed: {e}")
 
 @bot.tree.command(
     name="audibles",
@@ -112,6 +120,8 @@ async def on_ready():
     guild=discord.Object(id=GUILD_ID)
 )
 async def audibles(interaction: discord.Interaction):
-    await interaction.response.send_message("Choose an audible to play:", view=AudibleView(), ephemeral=True)
+    await interaction.response.send_message(
+        "Choose an audible to play:", view=AudibleView(), ephemeral=True
+    )
 
 bot.run(TOKEN)
