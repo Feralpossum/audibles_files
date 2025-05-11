@@ -5,30 +5,31 @@ import asyncio
 import os
 import aiohttp
 import io
+import subprocess
 
-# Load token and guild ID from environment
+# Load token and guild ID from environment variables
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID"))
 
 # Base URL pointing to your raw GitHub repository files
 BASE_URL = "https://raw.githubusercontent.com/Feralpossum/audibles_files/main/Audibles"
 
-# Define your audibles with descriptions and emojis
+# Audibles dictionary
 AUDIBLES = {
     "Boo":                  {"description": "Classic jump scare",     "emoji": "🎃"},
     "DoneLosing":           {"description": "Over it already",       "emoji": "🏁"},
     "DontSlipMoppingFloor": {"description": "Careful... it's wet!", "emoji": "🧹"},
-    "FatGuysNoMoney":       {"description": "Hard relatable moment", "emoji": "💸"},
+    "FatGuysNoMoney":       {"description": "Hard relatable moment","emoji": "💸"},
     "FromADrunkenMonkey":   {"description": "Monkey mayhem",         "emoji": "🐒"},
     "GreatestEVER":         {"description": "All-time hype",         "emoji": "🏆"},
-    "INeverWinYouSuck":     {"description": "Ultimate sore loser",   "emoji": "😡"},
+    "INeverWinYouSuck":     {"description": "Ultimate sore loser",  "emoji": "😡"},
     "KeepPunching":         {"description": "Fight back!",           "emoji": "🥊"},
-    "LovesomeLovesomeNot":  {"description": "Love's a battlefield",  "emoji": "💔"},
+    "LovesomeLovesomeNot":  {"description": "Love's a battlefield", "emoji": "💔"},
     "Mmm_roar":             {"description": "Rawr means love",       "emoji": "🦁"},
     "Mwahahaha":            {"description": "Evil laugh",            "emoji": "😈"},
-    "NotEvenSameZipCodeFunny": {"description":"You're not even close!","emoji":"🏡"},
+    "NotEvenSameZipCodeFunny":{"description":"You're not even close!","emoji":"🏡"},
     "Pleasestandstill":     {"description": "Deer in headlights",    "emoji": "🦌"},
-    "ReallyLonelyBeingYou": {"description": "A tragic roast",       "emoji": "😢"},
+    "ReallyLonelyBeingYou":{"description": "A tragic roast",       "emoji": "😢"},
     "Sandwich":             {"description": "Time for lunch",        "emoji": "🥪"},
     "Score":                {"description": "Winning!",              "emoji": "🏅"},
     "SeriouslyEvenTrying":  {"description": "Are you even trying?", "emoji": "🤨"},
@@ -59,22 +60,18 @@ class AudibleSelect(Select):
         mp4_url = f"{BASE_URL}/{choice}.mp4"
         mp3_url = f"{BASE_URL}/{choice}.mp3"
 
-        # Acknowledge the interaction
+        # Defer to allow time
         await interaction.response.defer()
 
-        # Send MP4 visual to chat
+        # Send MP4 visual
         try:
             async with aiohttp.ClientSession() as sess:
                 async with sess.get(mp4_url) as resp:
                     if resp.status == 200:
                         buf = io.BytesIO(await resp.read())
-                        await interaction.followup.send(
-                            file=discord.File(buf, filename=f"{choice}.mp4")
-                        )
+                        await interaction.followup.send(file=discord.File(buf, filename=f"{choice}.mp4"))
                     else:
-                        await interaction.followup.send(
-                            f"⚠️ MP4 unavailable (HTTP {resp.status})"
-                        )
+                        await interaction.followup.send(f"⚠️ MP4 unavailable (HTTP {resp.status})")
         except Exception as e:
             await interaction.followup.send(f"❌ Error fetching MP4: {e}")
 
@@ -82,12 +79,13 @@ class AudibleSelect(Select):
         if interaction.user.voice and interaction.user.voice.channel:
             vc = interaction.guild.voice_client or await interaction.user.voice.channel.connect()
             try:
-                source = discord.FFmpegPCMAudio(
-                    mp3_url,
-                    executable="ffmpeg",
-                    before_options="-re"
+                process = subprocess.Popen(
+                    ["ffmpeg", "-re", "-i", mp3_url, "-f", "s16le", "-ar", "48000", "-ac", "2", "pipe:1"],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL
                 )
-                vc.play(source)
+                audio = discord.PCMAudio(process.stdout)
+                vc.play(audio)
                 while vc.is_playing():
                     await asyncio.sleep(1)
                 await vc.disconnect()
@@ -114,10 +112,6 @@ async def on_ready():
     guild=discord.Object(id=GUILD_ID)
 )
 async def audibles(interaction: discord.Interaction):
-    await interaction.response.send_message(
-        "Choose an audible to play:",
-        view=AudibleView(),
-        ephemeral=True
-    )
+    await interaction.response.send_message("Choose an audible to play:", view=AudibleView(), ephemeral=True)
 
 bot.run(TOKEN)
