@@ -1,26 +1,23 @@
-# Use the official slim Python 3.12 image
+# Use the official slim Python 3.12 base image
 FROM python:3.12-slim
 
-# Install system ffmpeg (optional) and clean up apt cache
+# Install system ffmpeg and clean up apt caches
 RUN apt update && \
     apt install -y ffmpeg && \
     apt clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Set working directory
+# Set working directory in the container
 WORKDIR /app
 
-# Copy your application code (including your static ffmpeg binary)
+# Copy your application code into the container
 COPY . .
 
-# Make sure your static ffmpeg binary is executable
-RUN chmod +x /app/ffmpeg
+# Remove any bundled static ffmpeg binary so your code uses the distro’s ffmpeg
+RUN rm -f /app/ffmpeg
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Diagnostic startup + run your bot
-CMD echo "✅ Container started; showing contents..." && \
-    ls -la /app && \
-    echo "📦 Attempting to run main.py..." && \
-    python -u main.py
+# Run the bot
+CMD ["python", "-u", "main.py"]
