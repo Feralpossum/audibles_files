@@ -14,7 +14,7 @@ GUILD_ID = int(os.getenv("GUILD_ID"))
 # Raw GitHub URL for your hosted audibles
 BASE_URL = "https://raw.githubusercontent.com/Feralpossum/audibles_files/main/Audibles"
 
-# The list of audibles with descriptions and emojis
+# All audibles with descriptions and emojis
 AUDIBLES = {
     "Boo":                  {"description": "Classic jump scare",     "emoji": "🎃"},
     "DoneLosing":           {"description": "Over it already",       "emoji": "🏁"},
