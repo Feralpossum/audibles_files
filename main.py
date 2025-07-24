@@ -61,6 +61,7 @@ AUDIBLES = {
     "YouCrying":            {"description": "You Crying",            "emoji": "🔊"},
     "YouSuckMore":          {"description": "You Suck More",         "emoji": "🔊"},
     "nananana":             {"description": "Nananana",              "emoji": "🔊"},
+    "bye_bye":             {"description": "Bye Bye Now",            "emoji": "🔊"},
 }
 
 # Bot setup
